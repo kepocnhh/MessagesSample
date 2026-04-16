@@ -37,6 +37,7 @@ internal class AuthorizedLogics(
         logger.debug("encrypt")
         _loading.value = true
         val message = withContext(providers.contexts.default) {
+            val pk = providers.locals.pk ?: error("No private key!")
             TODO()
         }
         _loading.value = false

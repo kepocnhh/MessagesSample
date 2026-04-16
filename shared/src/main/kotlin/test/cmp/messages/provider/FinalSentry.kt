@@ -15,16 +15,17 @@ import java.security.spec.ECPrivateKeySpec
 import java.security.spec.ECPublicKeySpec
 import java.security.spec.PKCS8EncodedKeySpec
 import java.text.Normalizer
-import javax.crypto.Cipher
-import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator
 import org.bouncycastle.crypto.params.Argon2Parameters
 import org.bouncycastle.jce.ECNamedCurveTable
 import sp.kx.bytes.readUUID
+import test.cmp.messages.entity.GCMSpecs
 import test.cmp.messages.entity.SentryKey
 
-internal class FinalSentry : Sentry {
+internal class FinalSentry(
+    private val aes: AESEncryption<GCMSpecs>,
+) : Sentry {
     private fun nextBytes(size: Int): ByteArray {
         val random: SecureRandom = SecureRandom.getInstanceStrong()
         val bytes = ByteArray(size)
@@ -51,9 +52,8 @@ internal class FinalSentry : Sentry {
     }
 
     private fun getSeed(passphrase: String): ByteArray {
-        val encoded = Normalizer
-            .normalize(passphrase, Normalizer.Form.NFKD)
-            .toByteArray(Charsets.UTF_8)
+        val normalized = Normalizer.normalize(passphrase, Normalizer.Form.NFKD)
+        val encoded = normalized.toByteArray(Charsets.UTF_8)
         val md = MessageDigest.getInstance("sha256")
         md.update(0x00)
         val params = getArgon2Parameters(salt = md.digest(encoded))
@@ -86,22 +86,19 @@ internal class FinalSentry : Sentry {
         password: String,
         issuer: PrivateKey,
     ): SentryKey {
-        val encoded = Normalizer
-            .normalize(password, Normalizer.Form.NFKD)
-            .toByteArray(Charsets.UTF_8)
+        val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
+        val encoded = normalized.toByteArray(Charsets.UTF_8)
         val params = getArgon2Parameters(salt = nextBytes(32))
         val key = SecretKeySpec(getBytes(params = params, encoded = encoded), "aes")
-        val spec = GCMParameterSpec(128, nextBytes(12))
-        val cipher = Cipher.getInstance("aes/gcm/nopadding")
-        cipher.init(Cipher.ENCRYPT_MODE, key, spec)
-        val encrypted = cipher.doFinal(issuer.encoded)
+        val gcm = GCMSpecs(128, nextBytes(12))
+        val encrypted = aes.encrypt(key, issuer.encoded, gcm)
         val pub = getPublicKey(key = issuer)
         val md = MessageDigest.getInstance("sha256")
         val id = md.digest(pub.encoded).readUUID()
         return SentryKey(
             id = id,
             params = params,
-            spec = spec,
+            gcm = gcm,
             encrypted = encrypted,
         )
     }
@@ -119,9 +116,7 @@ internal class FinalSentry : Sentry {
             .normalize(password, Normalizer.Form.NFKD)
             .toByteArray(Charsets.UTF_8)
         val key = SecretKeySpec(getBytes(params = issuer.params, encoded = encoded), "aes")
-        val cipher = Cipher.getInstance("aes/gcm/nopadding")
-        cipher.init(Cipher.DECRYPT_MODE, key, issuer.spec)
-        val decrypted = cipher.doFinal(issuer.encrypted)
+        val decrypted = aes.decrypt(key, issuer.encrypted, issuer.gcm)
         val pk = toPrivateKey(decrypted)
         val pub = getPublicKey(key = pk)
         val md = MessageDigest.getInstance("sha256")

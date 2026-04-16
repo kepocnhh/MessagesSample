@@ -66,5 +66,15 @@ internal fun AuthorizedScreen(
                 .wrapContentSize(),
             text = "lock",
         )
+        BasicText(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(!isLoading) {
+                    logics.encrypt()
+                }
+                .padding(16.dp)
+                .wrapContentSize(),
+            text = "encrypt",
+        )
     }
 }
