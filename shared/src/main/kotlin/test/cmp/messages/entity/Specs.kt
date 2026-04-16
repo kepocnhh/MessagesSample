@@ -1,5 +1,7 @@
 package test.cmp.messages.entity
 
+import org.bouncycastle.crypto.params.Argon2Parameters
+
 internal sealed interface Specs
 
 class GCMSpecs(val tagSize: Int, val iv: ByteArray) : Specs
@@ -13,4 +15,19 @@ class Argon2Specs(
     val memorySize: Int,
     val parallelism: Int,
     val keySize: Int,
-) : Specs
+) : Specs {
+    companion object {
+        fun V1(salt: ByteArray): Argon2Specs {
+            if (salt.size != 32) TODO()
+            return Argon2Specs(
+                type = Argon2Parameters.ARGON2_id,
+                version = Argon2Parameters.ARGON2_VERSION_13,
+                salt = salt,
+                iterations = 3,
+                memorySize = 32_768,
+                parallelism = 1,
+                keySize = 32,
+            )
+        }
+    }
+}
