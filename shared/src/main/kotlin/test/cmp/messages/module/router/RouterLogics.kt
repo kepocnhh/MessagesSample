@@ -21,10 +21,10 @@ internal class RouterLogics(
 
     fun requestState() = launch {
         logger.debug("request state")
-        val ek = withContext(providers.contexts.default) {
-            TODO("RouterLogics:requestState")
+        val sk = withContext(providers.contexts.default) {
+            providers.locals.sk
         }
-        if (ek == null) {
+        if (sk == null) {
             _states.value = State.Unregistered
         } else {
             val pk = withContext(providers.contexts.default) {

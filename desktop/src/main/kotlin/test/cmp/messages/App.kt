@@ -13,9 +13,11 @@ import test.cmp.messages.module.router.RouterScreen
 import test.cmp.messages.provider.Contexts
 import test.cmp.messages.provider.FinalLocals
 import test.cmp.messages.provider.FinalLoggers
+import test.cmp.messages.provider.FinalSentry
 import test.cmp.messages.provider.Locals
 import test.cmp.messages.provider.Loggers
 import test.cmp.messages.provider.Providers
+import test.cmp.messages.provider.Sentry
 
 internal object App {
     val providers: Providers
@@ -38,10 +40,12 @@ internal object App {
         )
         val loggers: Loggers = FinalLoggers()
         val locals: Locals = FinalLocals()
+        val sentry: Sentry = FinalSentry()
         providers = Providers(
             contexts = contexts,
             loggers = loggers,
             locals = locals,
+            sentry = sentry,
         )
     }
 

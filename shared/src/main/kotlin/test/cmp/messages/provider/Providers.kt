@@ -4,4 +4,5 @@ internal class Providers(
     val contexts: Contexts,
     val loggers: Loggers,
     val locals: Locals,
+    val sentry: Sentry,
 )
