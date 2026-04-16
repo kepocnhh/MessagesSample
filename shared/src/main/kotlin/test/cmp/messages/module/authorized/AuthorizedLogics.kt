@@ -1,11 +1,13 @@
 package test.cmp.messages.module.authorized
 
+import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import sp.kx.bytes.writeBytes
 import sp.kx.logics.Logics
 import test.cmp.messages.provider.Providers
 
@@ -38,6 +40,13 @@ internal class AuthorizedLogics(
         _loading.value = true
         val message = withContext(providers.contexts.default) {
             val pk = providers.locals.pk ?: error("No private key!")
+            val (key, pub) = providers.sentry.getSharedSecret(pk)
+            val time = System.currentTimeMillis()
+            logger.debug("time: $time")
+            val signee = ByteArrayOutputStream().use { stream ->
+                stream.writeBytes(time)
+                stream.toByteArray()
+            }
             TODO()
         }
         _loading.value = false

@@ -3,6 +3,8 @@ package test.cmp.messages.provider
 import java.math.BigInteger
 import java.security.AlgorithmParameters
 import java.security.KeyFactory
+import java.security.KeyPair
+import java.security.KeyPairGenerator
 import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.PublicKey
@@ -15,6 +17,8 @@ import java.security.spec.ECPrivateKeySpec
 import java.security.spec.ECPublicKeySpec
 import java.security.spec.PKCS8EncodedKeySpec
 import java.text.Normalizer
+import javax.crypto.KeyAgreement
+import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 import org.bouncycastle.jce.ECNamedCurveTable
 import sp.kx.bytes.readUUID
@@ -23,8 +27,10 @@ import test.cmp.messages.entity.GCMSpecs
 import test.cmp.messages.entity.SentryKey
 
 internal class FinalSentry(
-    private val AESGCM: AESEncryption<GCMSpecs>,
-    private val AESArgon2: AESGenerator<Argon2Specs>,
+    private val aes: AESEncryption<GCMSpecs>,
+    private val bg: BytesGenerator<Argon2Specs>,
+    private val ec: ECCryptography,
+    private val ecdh: KeyAgreements,
 ) : Sentry {
     private fun nextBytes(size: Int): ByteArray {
         val random: SecureRandom = SecureRandom.getInstanceStrong()
@@ -38,7 +44,7 @@ internal class FinalSentry(
         val md = MessageDigest.getInstance("sha256")
         md.update(0x00)
         val specs = Argon2Specs.V1(salt = md.digest(normalized.toByteArray(Charsets.UTF_8)))
-        return AESArgon2.generate(password = normalized.toCharArray(), specs = specs)
+        return bg.generate(password = normalized.toCharArray(), specs = specs)
     }
 
     override fun getPrivateKey(passphrase: String): PrivateKey {
@@ -69,9 +75,9 @@ internal class FinalSentry(
     ): SentryKey {
         val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
         val keySpecs = Argon2Specs.V1(salt = nextBytes(32))
-        val key = SecretKeySpec(AESArgon2.generate(normalized.toCharArray(), keySpecs), "aes")
+        val key = SecretKeySpec(bg.generate(normalized.toCharArray(), keySpecs), "aes")
         val specs = GCMSpecs(128, nextBytes(12))
-        val encrypted = AESGCM.encrypt(key, issuer.encoded, specs)
+        val encrypted = aes.encrypt(key, issuer.encoded, specs)
         val pub = getPublicKey(key = issuer)
         val md = MessageDigest.getInstance("sha256")
         val id = md.digest(pub.encoded).readUUID()
@@ -93,13 +99,22 @@ internal class FinalSentry(
         issuer: SentryKey,
     ): PrivateKey {
         val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
-        val key = SecretKeySpec(AESArgon2.generate(normalized.toCharArray(), issuer.keySpecs), "aes")
-        val decrypted = AESGCM.decrypt(key, issuer.encrypted, issuer.specs)
+        val key = SecretKeySpec(bg.generate(normalized.toCharArray(), issuer.keySpecs), "aes")
+        val decrypted = aes.decrypt(key, issuer.encrypted, issuer.specs)
         val pk = toPrivateKey(decrypted)
         val pub = getPublicKey(key = pk)
         val md = MessageDigest.getInstance("sha256")
         val expected = md.digest(pub.encoded).readUUID()
         if (issuer.id != expected) TODO()
         return pk
+    }
+
+    override fun getSharedSecret(pk: PrivateKey): Pair<SecretKey, PublicKey> {
+        val keyPair = ec.newKeyPair()
+        val pub = getPublicKey(pk)
+        val md = MessageDigest.getInstance("sha256")
+        md.update(0x00)
+        val key = SecretKeySpec(md.digest(ecdh.getSharedBytes(keyPair.private, pub)), "aes")
+        return Pair(key, keyPair.public)
     }
 }

@@ -7,11 +7,11 @@ import org.bouncycastle.crypto.params.Argon2Parameters
 import test.cmp.messages.entity.Argon2Specs
 import test.cmp.messages.entity.PBESpecs
 
-internal interface AESGenerator<T : Any> {
+internal interface BytesGenerator<T : Any> {
     fun generate(password: CharArray, specs: T): ByteArray
 
     companion object {
-        val PBE = object : AESGenerator<PBESpecs> {
+        val PBE = object : BytesGenerator<PBESpecs> {
             override fun generate(
                 password: CharArray,
                 specs: PBESpecs,
@@ -22,7 +22,7 @@ internal interface AESGenerator<T : Any> {
             }
         }
 
-        val Argon2 = object : AESGenerator<Argon2Specs> {
+        val Argon2 = object : BytesGenerator<Argon2Specs> {
             override fun generate(
                 password: CharArray,
                 specs: Argon2Specs,
