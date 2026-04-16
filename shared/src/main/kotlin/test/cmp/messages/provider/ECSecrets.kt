@@ -15,7 +15,7 @@ import java.security.spec.ECPrivateKeySpec
 import java.security.spec.ECPublicKeySpec
 import org.bouncycastle.jce.ECNamedCurveTable
 
-internal class ECCryptography(name: String) {
+internal class ECSecrets private constructor(name: String) {
     private val spec = ECNamedCurveTable.getParameterSpec(name)
 
     fun newKeyPair(): KeyPair {
@@ -45,5 +45,9 @@ internal class ECCryptography(name: String) {
         val s = BigInteger(1, magnitude).mod(spec.order)
         val kf = KeyFactory.getInstance("ec")
         return kf.generatePrivate(ECPrivateKeySpec(s, spec))
+    }
+
+    companion object {
+        val SECP256R1 = ECSecrets(name = "secp256r1")
     }
 }

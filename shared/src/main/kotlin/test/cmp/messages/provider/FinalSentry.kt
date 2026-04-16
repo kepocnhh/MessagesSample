@@ -14,13 +14,13 @@ import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.entity.GCMSpecs
 import test.cmp.messages.entity.SentryKey
 
-internal class FinalSentry(
-    private val aes: AESEncryption<GCMSpecs>,
-    private val bg: BytesGenerator<Argon2Specs>,
-    private val ec: ECCryptography,
-    private val ecdh: KeyAgreements,
-    private val ecdsa: ECDSASigning,
-) : Sentry {
+internal class FinalSentry : Sentry {
+    private val aes = AESSecrets.GCM.NoPadding
+    private val ec = ECSecrets.SECP256R1
+    private val ecdh = KeyAgreements.ECDH
+    private val signing = Signing.ECDSA.SHA256
+    private val bg = BytesGenerator.Argon2
+
     private fun nextBytes(size: Int): ByteArray {
         val random: SecureRandom = SecureRandom.getInstanceStrong()
         val bytes = ByteArray(size)
@@ -94,7 +94,7 @@ internal class FinalSentry(
             stream.writeBytes(decrypted)
             stream.toByteArray()
         }
-        val signature = ecdsa.sign(key, signee)
+        val signature = signing.sign(key, signee)
         val specs = GCMSpecs(128, nextBytes(12))
         val encrypted = aes.encrypt(sk, decrypted, specs)
         return CipherMessage(
@@ -118,7 +118,7 @@ internal class FinalSentry(
             stream.toByteArray()
         }
         val pub = ec.getPublicKey(key)
-        ecdsa.verify(pub, signee, message.signature)
+        signing.verify(pub, signee, message.signature)
         return decrypted
     }
 }

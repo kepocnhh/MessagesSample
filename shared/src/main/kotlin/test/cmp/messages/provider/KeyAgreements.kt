@@ -4,17 +4,17 @@ import java.security.PrivateKey
 import java.security.PublicKey
 import javax.crypto.KeyAgreement
 
-internal interface KeyAgreements {
-    fun getSharedBytes(thisKey: PrivateKey, thatKey: PublicKey): ByteArray
+internal class KeyAgreements private constructor(
+    private val algorithm: String,
+) {
+    fun getSharedBytes(thisKey: PrivateKey, thatKey: PublicKey): ByteArray {
+        val ka = KeyAgreement.getInstance(algorithm)
+        ka.init(thisKey)
+        ka.doPhase(thatKey, true)
+        return ka.generateSecret()
+    }
 
     companion object {
-        val ECDH = object : KeyAgreements {
-            override fun getSharedBytes(thisKey: PrivateKey, thatKey: PublicKey): ByteArray {
-                val ka = KeyAgreement.getInstance("ecdh")
-                ka.init(thisKey)
-                ka.doPhase(thatKey, true)
-                return ka.generateSecret()
-            }
-        }
+        val ECDH = KeyAgreements(algorithm = "ecdh")
     }
 }
