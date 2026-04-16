@@ -7,8 +7,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import sp.kx.bytes.toByteArray
 import sp.kx.bytes.writeBytes
 import sp.kx.logics.Logics
+import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.provider.Providers
 
 internal class AuthorizedLogics(
@@ -16,7 +18,7 @@ internal class AuthorizedLogics(
 ) : Logics(providers.contexts.main) {
     sealed interface Event {
         data object OnLock : Event
-        class OnEncrypt(val message: ByteArray) : Event
+        class OnEncrypt(val message: CipherMessage) : Event
         class OnDecrypt(val result: Result<ByteArray>) : Event
     }
 
@@ -40,14 +42,10 @@ internal class AuthorizedLogics(
         _loading.value = true
         val message = withContext(providers.contexts.default) {
             val pk = providers.locals.pk ?: error("No private key!")
-            val (key, epub) = providers.sentry.getSharedSecret(pk)
             val time = System.currentTimeMillis()
             logger.debug("time: $time")
-            val signee = ByteArrayOutputStream().use { stream ->
-                stream.writeBytes(time)
-                stream.toByteArray()
-            }
-            TODO()
+            val encoded = time.toByteArray()
+            providers.sentry.encrypt(pk, encoded = encoded)
         }
         _loading.value = false
         _events.emit(Event.OnEncrypt(message = message))

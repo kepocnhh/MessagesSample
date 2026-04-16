@@ -1,5 +1,6 @@
 package test.cmp.messages.provider
 
+import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.PrivateKey
@@ -10,7 +11,9 @@ import java.text.Normalizer
 import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 import sp.kx.bytes.readUUID
+import sp.kx.bytes.writeBytes
 import test.cmp.messages.entity.Argon2Specs
+import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.entity.GCMSpecs
 import test.cmp.messages.entity.SentryKey
 
@@ -19,6 +22,7 @@ internal class FinalSentry(
     private val bg: BytesGenerator<Argon2Specs>,
     private val ec: ECCryptography,
     private val ecdh: KeyAgreements,
+    private val ecdsa: ECDSASigning,
 ) : Sentry {
     private fun nextBytes(size: Int): ByteArray {
         val random: SecureRandom = SecureRandom.getInstanceStrong()
@@ -80,12 +84,32 @@ internal class FinalSentry(
         return pk
     }
 
-    override fun getSharedSecret(pk: PrivateKey): Pair<SecretKey, PublicKey> {
+    override fun encrypt(key: PrivateKey, encoded: ByteArray): CipherMessage {
+        val pub = ec.getPublicKey(key)
         val keyPair = ec.newKeyPair()
         val md = MessageDigest.getInstance("sha256")
         md.update(0x00)
-        val sb = ecdh.getSharedBytes(keyPair.private, ec.getPublicKey(pk))
-        val key = SecretKeySpec(md.digest(sb), "aes")
-        return Pair(key, keyPair.public)
+        val sb = ecdh.getSharedBytes(keyPair.private, pub)
+        val sk = SecretKeySpec(md.digest(sb), "aes")
+        val signee = ByteArrayOutputStream().use { stream ->
+            stream.writeBytes(key.encoded)
+            stream.writeBytes(sk.encoded)
+            stream.writeBytes(encoded)
+            stream.toByteArray()
+        }
+        val signature = ecdsa.sign(key, signee)
+        val decrypted = ByteArrayOutputStream().use { stream ->
+            stream.writeBytes(encoded.size)
+            stream.writeBytes(encoded)
+            stream.toByteArray()
+        }
+        val specs = GCMSpecs(128, nextBytes(12))
+        val encrypted = aes.encrypt(sk, decrypted, specs)
+        return CipherMessage(
+            thatKey = keyPair.public,
+            specs = specs,
+            encrypted = encrypted,
+            signature = signature,
+        )
     }
 }

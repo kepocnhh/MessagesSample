@@ -20,6 +20,7 @@ import test.cmp.messages.provider.Providers
 import test.cmp.messages.provider.AESEncryption
 import test.cmp.messages.provider.BytesGenerator
 import test.cmp.messages.provider.ECCryptography
+import test.cmp.messages.provider.ECDSASigning
 import test.cmp.messages.provider.KeyAgreements
 import test.cmp.messages.provider.Sentry
 
@@ -49,6 +50,7 @@ internal object App {
             bg = BytesGenerator.Argon2,
             ec = ECCryptography("secp256r1"),
             ecdh = KeyAgreements.ECDH,
+            ecdsa = ECDSASigning("sha256"),
         )
         providers = Providers(
             contexts = contexts,
