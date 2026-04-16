@@ -12,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import test.cmp.messages.App
+import test.cmp.messages.module.authorized.AuthorizedScreen
+import test.cmp.messages.module.authorized.UnauthorizedScreen
 import test.cmp.messages.module.registered.UnregisteredScreen
 
 @Composable
@@ -28,19 +30,20 @@ internal fun RouterScreen() {
     ) {
         when (state) {
             RouterLogics.State.Authorized -> {
-                BasicText(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.Center),
-                    text = "Authorized", // todo
+                AuthorizedScreen(
+                    onLock = {
+                        logics.requestState()
+                    },
                 )
             }
             RouterLogics.State.Unauthorized -> {
-                BasicText(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.Center),
-                    text = "Unauthorized", // todo
+                UnauthorizedScreen(
+                    onUnlock = {
+                        logics.requestState()
+                    },
+                    onExit = {
+                        logics.requestState()
+                    },
                 )
             }
             RouterLogics.State.Unregistered -> {
