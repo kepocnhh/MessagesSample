@@ -3,6 +3,7 @@ package test.cmp.messages.module.router
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import sp.kx.bytes.hex
 import sp.kx.logics.Logics
 import test.cmp.messages.provider.Providers
 
@@ -27,12 +28,14 @@ internal class RouterLogics(
         if (sk == null) {
             _states.value = State.Unregistered
         } else {
+            logger.debug("id: ${sk.id}")
             val pk = withContext(providers.contexts.default) {
                 providers.locals.pk
             }
             if (pk == null) {
                 _states.value = State.Unauthorized
             } else {
+                logger.debug("pk: ${pk.encoded.copyOf(8).hex()}")
                 _states.value = State.Authorized
             }
         }

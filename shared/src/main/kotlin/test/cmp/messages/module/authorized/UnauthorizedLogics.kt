@@ -30,6 +30,7 @@ internal class UnauthorizedLogics(
         val result = withContext(providers.contexts.default) {
             runCatching {
                 val sk = providers.locals.sk ?: TODO("no sk!")
+                logger.debug("id: ${sk.id}")
                 val pk = providers.sentry.decrypt(password = password, issuer = sk)
                 logger.debug("pk: ${pk.encoded.copyOf(8).hex()}")
                 providers.locals.pk = pk
