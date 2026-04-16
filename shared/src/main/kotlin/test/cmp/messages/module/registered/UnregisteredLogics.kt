@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import sp.kx.bytes.hex
 import sp.kx.logics.Logics
 import test.cmp.messages.provider.Providers
 
@@ -28,6 +29,7 @@ internal class UnregisteredLogics(
         _loading.value = true
         withContext(providers.contexts.default) {
             val pk = providers.sentry.getPrivateKey(passphrase = passphrase)
+            logger.debug("pk: ${pk.encoded.copyOf(8).hex()}")
             val sk = providers.sentry.encrypt(password = password, issuer = pk)
             providers.locals.sk = sk
             providers.locals.pk = pk
