@@ -18,6 +18,7 @@ import test.cmp.messages.provider.Locals
 import test.cmp.messages.provider.Loggers
 import test.cmp.messages.provider.Providers
 import test.cmp.messages.provider.AESEncryption
+import test.cmp.messages.provider.AESGenerator
 import test.cmp.messages.provider.Sentry
 
 internal object App {
@@ -43,6 +44,7 @@ internal object App {
         val locals: Locals = FinalLocals()
         val sentry: Sentry = FinalSentry(
             aes = AESEncryption.GCM,
+            argon2 = AESGenerator.Argon2,
         )
         providers = Providers(
             contexts = contexts,

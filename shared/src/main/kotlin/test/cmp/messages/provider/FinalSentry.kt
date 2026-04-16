@@ -20,11 +20,13 @@ import org.bouncycastle.crypto.generators.Argon2BytesGenerator
 import org.bouncycastle.crypto.params.Argon2Parameters
 import org.bouncycastle.jce.ECNamedCurveTable
 import sp.kx.bytes.readUUID
+import test.cmp.messages.entity.Argon2Specs
 import test.cmp.messages.entity.GCMSpecs
 import test.cmp.messages.entity.SentryKey
 
 internal class FinalSentry(
     private val aes: AESEncryption<GCMSpecs>,
+    private val argon2: AESGenerator<Argon2Specs>,
 ) : Sentry {
     private fun nextBytes(size: Int): ByteArray {
         val random: SecureRandom = SecureRandom.getInstanceStrong()
@@ -33,14 +35,16 @@ internal class FinalSentry(
         return bytes
     }
 
-    private fun getArgon2Parameters(salt: ByteArray): Argon2Parameters {
-        return Argon2Parameters.Builder(Argon2Parameters.ARGON2_id)
-            .withVersion(Argon2Parameters.ARGON2_VERSION_13)
-            .withSalt(salt)
-            .withIterations(3)
-            .withMemoryAsKB(32_768)
-            .withParallelism(1)
-            .build()
+    private fun getArgon2Specs(salt: ByteArray): Argon2Specs {
+        return Argon2Specs(
+            type = Argon2Parameters.ARGON2_id,
+            version = Argon2Parameters.ARGON2_VERSION_13,
+            salt = salt,
+            iterations = 3,
+            memorySize = 32_768,
+            parallelism = 1,
+            keySize = 32,
+        )
     }
 
     private fun getBytes(params: Argon2Parameters, encoded: ByteArray): ByteArray {
@@ -53,11 +57,10 @@ internal class FinalSentry(
 
     private fun getSeed(passphrase: String): ByteArray {
         val normalized = Normalizer.normalize(passphrase, Normalizer.Form.NFKD)
-        val encoded = normalized.toByteArray(Charsets.UTF_8)
         val md = MessageDigest.getInstance("sha256")
         md.update(0x00)
-        val params = getArgon2Parameters(salt = md.digest(encoded))
-        return getBytes(params = params, encoded = encoded)
+        val specs = getArgon2Specs(salt = md.digest(normalized.toByteArray(Charsets.UTF_8)))
+        return argon2.generate(password = normalized.toCharArray(), specs = specs)
     }
 
     override fun getPrivateKey(passphrase: String): PrivateKey {
@@ -87,9 +90,8 @@ internal class FinalSentry(
         issuer: PrivateKey,
     ): SentryKey {
         val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
-        val encoded = normalized.toByteArray(Charsets.UTF_8)
-        val params = getArgon2Parameters(salt = nextBytes(32))
-        val key = SecretKeySpec(getBytes(params = params, encoded = encoded), "aes")
+        val specs = getArgon2Specs(salt = nextBytes(32))
+        val key = SecretKeySpec(argon2.generate(password = normalized.toCharArray(), specs = specs), "aes")
         val gcm = GCMSpecs(128, nextBytes(12))
         val encrypted = aes.encrypt(key, issuer.encoded, gcm)
         val pub = getPublicKey(key = issuer)
@@ -97,7 +99,7 @@ internal class FinalSentry(
         val id = md.digest(pub.encoded).readUUID()
         return SentryKey(
             id = id,
-            params = params,
+            argon2 = specs,
             gcm = gcm,
             encrypted = encrypted,
         )
@@ -112,10 +114,8 @@ internal class FinalSentry(
         password: String,
         issuer: SentryKey,
     ): PrivateKey {
-        val encoded = Normalizer
-            .normalize(password, Normalizer.Form.NFKD)
-            .toByteArray(Charsets.UTF_8)
-        val key = SecretKeySpec(getBytes(params = issuer.params, encoded = encoded), "aes")
+        val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
+        val key = SecretKeySpec(argon2.generate(password = normalized.toCharArray(), specs = issuer.argon2), "aes")
         val decrypted = aes.decrypt(key, issuer.encrypted, issuer.gcm)
         val pk = toPrivateKey(decrypted)
         val pub = getPublicKey(key = pk)

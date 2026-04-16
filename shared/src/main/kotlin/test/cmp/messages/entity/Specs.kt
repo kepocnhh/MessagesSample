@@ -5,7 +5,7 @@ internal sealed interface Specs
 class GCMSpecs(val tagSize: Int, val iv: ByteArray) : Specs
 class CBCSpecs(val iv: ByteArray) : Specs
 class PBESpecs(val salt: ByteArray, val iterations: Int, val keySize: Int) : Specs
-class ArgonSpecs(
+class Argon2Specs(
     val type: Int,
     val version: Int,
     val salt: ByteArray,
