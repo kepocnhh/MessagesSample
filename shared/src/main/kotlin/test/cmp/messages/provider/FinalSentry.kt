@@ -4,14 +4,11 @@ import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.PrivateKey
-import java.security.PublicKey
 import java.security.SecureRandom
 import java.security.spec.PKCS8EncodedKeySpec
 import java.text.Normalizer
-import javax.crypto.SecretKey
 import javax.crypto.spec.SecretKeySpec
 import sp.kx.bytes.readUUID
-import sp.kx.bytes.writeBytes
 import test.cmp.messages.entity.Argon2Specs
 import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.entity.GCMSpecs
@@ -84,7 +81,7 @@ internal class FinalSentry(
         return pk
     }
 
-    override fun encrypt(key: PrivateKey, encoded: ByteArray): CipherMessage {
+    override fun encrypt(key: PrivateKey, decrypted: ByteArray): CipherMessage {
         val pub = ec.getPublicKey(key)
         val keyPair = ec.newKeyPair()
         val md = MessageDigest.getInstance("sha256")
@@ -94,15 +91,10 @@ internal class FinalSentry(
         val signee = ByteArrayOutputStream().use { stream ->
             stream.writeBytes(key.encoded)
             stream.writeBytes(sk.encoded)
-            stream.writeBytes(encoded)
+            stream.writeBytes(decrypted)
             stream.toByteArray()
         }
         val signature = ecdsa.sign(key, signee)
-        val decrypted = ByteArrayOutputStream().use { stream ->
-            stream.writeBytes(encoded.size)
-            stream.writeBytes(encoded)
-            stream.toByteArray()
-        }
         val specs = GCMSpecs(128, nextBytes(12))
         val encrypted = aes.encrypt(sk, decrypted, specs)
         return CipherMessage(
@@ -111,5 +103,22 @@ internal class FinalSentry(
             encrypted = encrypted,
             signature = signature,
         )
+    }
+
+    override fun decrypt(key: PrivateKey, message: CipherMessage): ByteArray {
+        val md = MessageDigest.getInstance("sha256")
+        md.update(0x00)
+        val sb = ecdh.getSharedBytes(key, message.thatKey)
+        val sk = SecretKeySpec(md.digest(sb), "aes")
+        val decrypted = aes.decrypt(sk, message.encrypted, message.specs)
+        val signee = ByteArrayOutputStream().use { stream ->
+            stream.writeBytes(key.encoded)
+            stream.writeBytes(sk.encoded)
+            stream.writeBytes(decrypted)
+            stream.toByteArray()
+        }
+        val pub = ec.getPublicKey(key)
+        ecdsa.verify(pub, signee, message.signature)
+        return decrypted
     }
 }
