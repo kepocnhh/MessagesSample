@@ -1,7 +1,13 @@
 package test.cmp.messages.provider
 
+import java.math.BigInteger
+import java.security.AlgorithmParameters
+import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.PrivateKey
+import java.security.spec.ECGenParameterSpec
+import java.security.spec.ECParameterSpec
+import java.security.spec.ECPrivateKeySpec
 import java.text.Normalizer
 import javax.crypto.SecretKey
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator
@@ -38,7 +44,12 @@ internal class FinalSentry : Sentry {
 
     override fun getPrivateKey(passphrase: String): PrivateKey {
         val seed = getSeed(passphrase = passphrase)
-        TODO("Sentry:getPrivateKey")
+        val ap = AlgorithmParameters.getInstance("ec")
+        ap.init(ECGenParameterSpec("secp256r1"))
+        val spec = ap.getParameterSpec(ECParameterSpec::class.java)
+        val s = BigInteger(1, seed).mod(spec.order)
+        val kf = KeyFactory.getInstance("ec")
+        return kf.generatePrivate(ECPrivateKeySpec(s, spec))
     }
 
     override fun encrypt(
