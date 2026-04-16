@@ -40,7 +40,7 @@ internal class AuthorizedLogics(
         _loading.value = true
         val message = withContext(providers.contexts.default) {
             val pk = providers.locals.pk ?: error("No private key!")
-            val (key, pub) = providers.sentry.getSharedSecret(pk)
+            val (key, epub) = providers.sentry.getSharedSecret(pk)
             val time = System.currentTimeMillis()
             logger.debug("time: $time")
             val signee = ByteArrayOutputStream().use { stream ->

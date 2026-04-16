@@ -47,7 +47,7 @@ internal object App {
         val sentry: Sentry = FinalSentry(
             aes = AESEncryption.GCM,
             bg = BytesGenerator.Argon2,
-            ec = ECCryptography(curve = "secp256r1"),
+            ec = ECCryptography("secp256r1"),
             ecdh = KeyAgreements.ECDH,
         )
         providers = Providers(
