@@ -63,4 +63,7 @@ androidComponents.onVariants { variant ->
 dependencies {
     implementation(compose.foundation)
     implementation("androidx.activity:activity-compose:1.12.4")
+    implementation("com.github.kepocnhh:Bytes:0.4.0")
+    implementation("com.github.kepocnhh:Logics:0.2.0")
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.82")
 }
