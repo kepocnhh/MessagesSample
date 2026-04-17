@@ -7,7 +7,6 @@ import java.security.PrivateKey
 import java.security.SecureRandom
 import java.security.spec.PKCS8EncodedKeySpec
 import java.text.Normalizer
-import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import sp.kx.bytes.hex
 import sp.kx.bytes.readUUID
@@ -25,6 +24,7 @@ internal class FinalSentry(
     private val ecdh = KeyAgreements.ECDH
     private val signing = Signing.ECDSA.SHA256
     private val bg = BytesGenerator.Argon2
+    private val mac = Macs.HMAC.SHA512
 
     private fun derive(mk: ByteArray, indices: ByteArray, purpose: Byte): ByteArray {
         val sk = derive(mk = mk, indices = indices).copyOf(32)
@@ -39,13 +39,10 @@ internal class FinalSentry(
         val cc = mk.copyOfRange(32, 64)
         val md = MessageDigest.getInstance("sha256")
         md.update(index)
-        val mac = Mac.getInstance("hmacsha512")
+        val signee = md.digest(cc)
         val key = SecretKeySpec(sk, mac.algorithm)
-        mac.init(key)
-        if (indices.size == 1) {
-            return mac.doFinal(md.digest(cc))
-        }
-        return derive(mk = mac.doFinal(md.digest(cc)), indices = indices.copyOfRange(1, indices.size))
+        if (indices.size == 1) return mac.sign(key, signee)
+        return derive(mk = mac.sign(key, signee), indices = indices.copyOfRange(1, indices.size))
     }
 
     private fun nextBytes(size: Int): ByteArray {

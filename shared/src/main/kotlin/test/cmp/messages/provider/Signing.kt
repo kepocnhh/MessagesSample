@@ -4,25 +4,24 @@ import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.Signature
 
-internal sealed interface Signing {
-    fun sign(key: PrivateKey, signee: ByteArray): ByteArray
-    fun verify(key: PublicKey, signee: ByteArray, signature: ByteArray)
+internal class Signing private constructor(
+    val algorithm: String,
+) {
+    fun sign(key: PrivateKey, signee: ByteArray): ByteArray {
+        val sig = Signature.getInstance(algorithm)
+        sig.initSign(key)
+        sig.update(signee)
+        return sig.sign()
+    }
+
+    fun verify(key: PublicKey, signee: ByteArray, signature: ByteArray) {
+        val sig = Signature.getInstance(algorithm)
+        sig.initVerify(key)
+        sig.update(signee)
+        if (!sig.verify(signature)) TODO("Signing:verify")
+    }
 
     object ECDSA {
-        object SHA256 : Signing {
-            override fun sign(key: PrivateKey, signee: ByteArray): ByteArray {
-                val sig = Signature.getInstance("sha256withecdsa")
-                sig.initSign(key)
-                sig.update(signee)
-                return sig.sign()
-            }
-
-            override fun verify(key: PublicKey, signee: ByteArray, signature: ByteArray) {
-                val sig = Signature.getInstance("sha256withecdsa")
-                sig.initVerify(key)
-                sig.update(signee)
-                if (!sig.verify(signature)) TODO("Signing:verify")
-            }
-        }
+        val SHA256 = Signing(algorithm = "sha256withecdsa")
     }
 }

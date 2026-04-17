@@ -5,7 +5,7 @@ import java.security.PublicKey
 import javax.crypto.KeyAgreement
 
 internal class KeyAgreements private constructor(
-    private val algorithm: String,
+    val algorithm: String,
 ) {
     fun getSharedBytes(thisKey: PrivateKey, thatKey: PublicKey): ByteArray {
         val ka = KeyAgreement.getInstance(algorithm)
