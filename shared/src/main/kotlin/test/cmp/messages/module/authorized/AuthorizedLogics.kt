@@ -1,5 +1,6 @@
 package test.cmp.messages.module.authorized
 
+import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -8,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import sp.kx.bytes.readLong
 import sp.kx.bytes.toByteArray
+import sp.kx.bytes.writeBytes
 import sp.kx.logics.Logics
 import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.provider.Providers
@@ -45,6 +47,18 @@ internal class AuthorizedLogics(
             logger.debug("time: $time")
             val decrypted = time.toByteArray()
             providers.sentry.encrypt(pk, decrypted = decrypted)
+//            val cm = providers.sentry.encrypt(pk, decrypted = decrypted)
+//            ByteArrayOutputStream().use { stream ->
+//                stream.writeBytes(cm.thatKey.encoded.size)
+//                stream.writeBytes(cm.thatKey.encoded)
+//                stream.write(cm.specs.tagSize)
+//                stream.writeBytes(cm.specs.iv)
+//                stream.writeBytes(cm.encrypted.size)
+//                stream.writeBytes(cm.encrypted)
+//                stream.writeBytes(cm.signature.size)
+//                stream.writeBytes(cm.signature)
+//                stream.toByteArray()
+//            }
         }
         _loading.value = false
         _events.emit(Event.OnEncrypt(message = message))
