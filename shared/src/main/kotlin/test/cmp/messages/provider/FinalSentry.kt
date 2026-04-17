@@ -67,9 +67,9 @@ internal class FinalSentry(
         val seed = getSeed(passphrase = passphrase)
         logger.debug("seed(${seed.size}): ${seed.copyOf(8).hex()}")
         val magnitude = derive(mk = seed, indices = byteArrayOf(0x00), purpose = 0x00)
-        logger.debug("magnitude(${magnitude.size}): ${magnitude.copyOf(32).hex()}")
+        logger.debug("magnitude(${magnitude.size}): ${magnitude.copyOf(8).hex()}")
         val pk = ec.getPrivateKey(magnitude = magnitude)
-        logger.debug("pk: ${pk.encoded.hex()}")
+        logger.debug("pk: ${pk.encoded.toHexString()}")
         return pk
     }
 

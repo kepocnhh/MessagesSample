@@ -6,7 +6,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import sp.kx.bytes.hex
 import sp.kx.logics.Logics
 import test.cmp.messages.provider.Providers
 
@@ -32,7 +31,7 @@ internal class UnauthorizedLogics(
                 val sk = providers.locals.sk ?: TODO("no sk!")
                 logger.debug("id: ${sk.id}")
                 val pk = providers.sentry.decrypt(password = password, issuer = sk)
-                logger.debug("pk: ${pk.encoded.hex()}")
+                logger.debug("pk: ${pk.encoded.toHexString()}")
                 providers.locals.pk = pk
             }
         }
