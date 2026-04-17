@@ -4,8 +4,10 @@ import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.PrivateKey
+import java.security.PublicKey
 import java.security.SecureRandom
 import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
 import java.text.Normalizer
 import javax.crypto.spec.SecretKeySpec
 import sp.kx.bytes.hex
@@ -71,6 +73,11 @@ internal class FinalSentry(
         val pk = ec.getPrivateKey(magnitude = magnitude)
         logger.debug("pk: ${pk.encoded.toHexString()}")
         return pk
+    }
+
+    override fun toPublicKey(encoded: ByteArray): PublicKey {
+        val kf = KeyFactory.getInstance("ec")
+        return kf.generatePublic(X509EncodedKeySpec(encoded))
     }
 
     override fun encrypt(
