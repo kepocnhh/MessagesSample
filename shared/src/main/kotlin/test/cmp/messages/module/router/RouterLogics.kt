@@ -35,7 +35,7 @@ internal class RouterLogics(
             if (pk == null) {
                 _states.value = State.Unauthorized
             } else {
-                logger.debug("pk: ${pk.encoded.copyOf(8).hex()}")
+                logger.debug("pk: ${pk.encoded.hex()}")
                 _states.value = State.Authorized
             }
         }

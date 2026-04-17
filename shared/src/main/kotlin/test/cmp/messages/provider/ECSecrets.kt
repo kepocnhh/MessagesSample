@@ -42,7 +42,9 @@ internal class ECSecrets private constructor(name: String) {
         val ap = AlgorithmParameters.getInstance("ec")
         ap.init(ECGenParameterSpec(spec.name))
         val spec = ap.getParameterSpec(ECParameterSpec::class.java)
-        val s = BigInteger(1, magnitude).mod(spec.order)
+        if (magnitude.size != spec.order.bitLength().plus(7).div(8)) TODO("magnitude:size: ${magnitude.size} but curve:size: ${spec.order.bitLength()}")
+        val s = BigInteger(1, magnitude)
+        if (s < BigInteger.ONE || s >= spec.order) TODO("s: $s but n: ${spec.order}")
         val kf = KeyFactory.getInstance("ec")
         return kf.generatePrivate(ECPrivateKeySpec(s, spec))
     }

@@ -40,7 +40,9 @@ internal object App {
         )
         val loggers: Loggers = FinalLoggers()
         val locals: Locals = FinalLocals()
-        val sentry: Sentry = FinalSentry()
+        val sentry: Sentry = FinalSentry(
+            loggers = loggers,
+        )
         providers = Providers(
             contexts = contexts,
             loggers = loggers,

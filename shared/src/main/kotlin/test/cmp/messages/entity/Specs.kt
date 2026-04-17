@@ -17,7 +17,7 @@ class Argon2Specs(
     val keySize: Int,
 ) : Specs {
     companion object {
-        fun V1(salt: ByteArray): Argon2Specs {
+        fun V1(salt: ByteArray, keySize: Int): Argon2Specs {
             if (salt.size != 32) TODO()
             return Argon2Specs(
                 type = Argon2Parameters.ARGON2_id,
@@ -26,7 +26,7 @@ class Argon2Specs(
                 iterations = 3,
                 memorySize = 32_768,
                 parallelism = 1,
-                keySize = 32,
+                keySize = keySize,
             )
         }
     }

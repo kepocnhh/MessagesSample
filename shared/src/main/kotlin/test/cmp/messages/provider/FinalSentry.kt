@@ -7,19 +7,46 @@ import java.security.PrivateKey
 import java.security.SecureRandom
 import java.security.spec.PKCS8EncodedKeySpec
 import java.text.Normalizer
+import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
+import sp.kx.bytes.hex
 import sp.kx.bytes.readUUID
 import test.cmp.messages.entity.Argon2Specs
 import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.entity.GCMSpecs
 import test.cmp.messages.entity.SentryKey
 
-internal class FinalSentry : Sentry {
+internal class FinalSentry(
+    loggers: Loggers,
+) : Sentry {
+    private val logger = loggers.create("[Sentry]")
     private val aes = AESSecrets.GCM.NoPadding
     private val ec = ECSecrets.SECP256R1
     private val ecdh = KeyAgreements.ECDH
     private val signing = Signing.ECDSA.SHA256
     private val bg = BytesGenerator.Argon2
+
+    private fun derive(mk: ByteArray, indices: ByteArray, purpose: Byte): ByteArray {
+        val sk = derive(mk = mk, indices = indices).copyOf(32)
+        val md = MessageDigest.getInstance("sha256")
+        md.update(purpose)
+        return md.digest(sk)
+    }
+
+    private fun derive(mk: ByteArray, indices: ByteArray): ByteArray {
+        val index = indices.firstOrNull() ?: TODO()
+        val sk = mk.copyOf(32)
+        val cc = mk.copyOfRange(32, 64)
+        val md = MessageDigest.getInstance("sha256")
+        md.update(index)
+        val mac = Mac.getInstance("hmacsha512")
+        val key = SecretKeySpec(sk, mac.algorithm)
+        mac.init(key)
+        if (indices.size == 1) {
+            return mac.doFinal(md.digest(cc))
+        }
+        return derive(mk = mac.doFinal(md.digest(cc)), indices = indices.copyOfRange(1, indices.size))
+    }
 
     private fun nextBytes(size: Int): ByteArray {
         val random: SecureRandom = SecureRandom.getInstanceStrong()
@@ -29,16 +56,24 @@ internal class FinalSentry : Sentry {
     }
 
     private fun getSeed(passphrase: String): ByteArray {
+        logger.debug("passphrase(${passphrase.length}): \"$passphrase\"")
         val normalized = Normalizer.normalize(passphrase, Normalizer.Form.NFKD)
+        logger.debug("normalized(${normalized.length}): \"$normalized\"")
         val md = MessageDigest.getInstance("sha256")
         md.update(0x00)
-        val specs = Argon2Specs.V1(salt = md.digest(normalized.toByteArray(Charsets.UTF_8)))
+        md.update(normalized.toByteArray(Charsets.UTF_8))
+        val specs = Argon2Specs.V1(salt = md.digest(), keySize = 64)
         return bg.generate(password = normalized.toCharArray(), specs = specs)
     }
 
     override fun getPrivateKey(passphrase: String): PrivateKey {
         val seed = getSeed(passphrase = passphrase)
-        return ec.getPrivateKey(magnitude = seed)
+        logger.debug("seed(${seed.size}): ${seed.copyOf(8).hex()}")
+        val magnitude = derive(mk = seed, indices = byteArrayOf(0x00), purpose = 0x00)
+        logger.debug("magnitude(${magnitude.size}): ${magnitude.copyOf(32).hex()}")
+        val pk = ec.getPrivateKey(magnitude = magnitude)
+        logger.debug("pk: ${pk.encoded.hex()}")
+        return pk
     }
 
     override fun encrypt(
@@ -46,7 +81,7 @@ internal class FinalSentry : Sentry {
         issuer: PrivateKey,
     ): SentryKey {
         val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
-        val keySpecs = Argon2Specs.V1(salt = nextBytes(32))
+        val keySpecs = Argon2Specs.V1(salt = nextBytes(32), keySize = 32)
         val key = SecretKeySpec(bg.generate(normalized.toCharArray(), keySpecs), "aes")
         val specs = GCMSpecs(128, nextBytes(12))
         val encrypted = aes.encrypt(key, issuer.encoded, specs)
