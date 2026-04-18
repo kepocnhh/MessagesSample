@@ -3,11 +3,15 @@ package test.cmp.messages.module.authorized
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.net.NetworkInterface
+import java.net.ServerSocket
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import sp.kx.bytes.readBytes
 import sp.kx.bytes.readInt
@@ -46,25 +50,35 @@ internal class AuthorizedLogics(
     fun receive() = launch {
         logger.debug("receive")
         withContext(providers.contexts.default) {
-            for (ni in NetworkInterface.getNetworkInterfaces()) {
-                logger.debug("ni: ${ni.name}")
-                for (address in ni.inetAddresses) {
-                    val message = """
-                        hostName: ${address.hostName}
-                        hostAddress: ${address.hostAddress}
-                        isAnyLocalAddress: ${address.isAnyLocalAddress}
-                        isLinkLocalAddress: ${address.isLinkLocalAddress}
-                        isLoopbackAddress: ${address.isLoopbackAddress}
-                        isMCGlobal: ${address.isMCGlobal}
-                        isMCLinkLocal: ${address.isMCLinkLocal}
-                        isMCNodeLocal: ${address.isMCNodeLocal}
-                        isMCOrgLocal: ${address.isMCOrgLocal}
-                        isMulticastAddress: ${address.isMulticastAddress}
-                        isSiteLocalAddress: ${address.isSiteLocalAddress}
-                    """.trimIndent()
-                    logger.debug(message)
+            runCatching {
+                val address = NetworkInterface.getNetworkInterfaces()
+                    .asSequence()
+                    .flatMap { it.inetAddresses.asSequence() }
+                    .firstOrNull { it.isSiteLocalAddress }
+                    ?: TODO("No address!")
+                val ss = ServerSocket(0, 1, address)
+                logger.debug("socket: ${ss.inetAddress.hostAddress}:${ss.localPort}")
+                launch {
+                    withContext(providers.contexts.default) {
+                        delay(4.seconds)
+                        logger.debug("try to close the socket")
+                        ss.close()
+                    }
                 }
-            }
+                while (true) {
+                    ss.accept().use { socket ->
+                        logger.debug("socket:accept: ${socket.inetAddress.hostAddress}:${socket.port}")
+                        // todo
+                    }
+                }
+            }.fold(
+                onSuccess = {
+                    logger.debug("receive success")
+                },
+                onFailure = { error ->
+                    logger.warning("receive error: $error")
+                },
+            )
         }
     }
 
