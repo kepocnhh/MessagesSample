@@ -70,11 +70,11 @@ internal fun AuthorizedScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(!isLoading) {
-                    logics.encrypt()
+                    logics.receive()
                 }
                 .padding(16.dp)
                 .wrapContentSize(),
-            text = "encrypt",
+            text = "receive",
         )
     }
 }

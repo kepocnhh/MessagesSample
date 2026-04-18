@@ -2,6 +2,7 @@ package test.cmp.messages.module.authorized
 
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.net.NetworkInterface
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +41,31 @@ internal class AuthorizedLogics(
             providers.locals.pk = null
         }
         _events.emit(Event.OnLock)
+    }
+
+    fun receive() = launch {
+        logger.debug("receive")
+        withContext(providers.contexts.default) {
+            for (ni in NetworkInterface.getNetworkInterfaces()) {
+                logger.debug("ni: ${ni.name}")
+                for (address in ni.inetAddresses) {
+                    val message = """
+                        hostName: ${address.hostName}
+                        hostAddress: ${address.hostAddress}
+                        isAnyLocalAddress: ${address.isAnyLocalAddress}
+                        isLinkLocalAddress: ${address.isLinkLocalAddress}
+                        isLoopbackAddress: ${address.isLoopbackAddress}
+                        isMCGlobal: ${address.isMCGlobal}
+                        isMCLinkLocal: ${address.isMCLinkLocal}
+                        isMCNodeLocal: ${address.isMCNodeLocal}
+                        isMCOrgLocal: ${address.isMCOrgLocal}
+                        isMulticastAddress: ${address.isMulticastAddress}
+                        isSiteLocalAddress: ${address.isSiteLocalAddress}
+                    """.trimIndent()
+                    logger.debug(message)
+                }
+            }
+        }
     }
 
     fun encrypt() = launch {
