@@ -62,10 +62,22 @@ internal class AuthorizedLogics(
         if (version != "1.1") TODO()
         val method = split[0]
         val query = split[1]
+        val headers = mutableMapOf<String, String>()
+        while (true) {
+            val line = src.readUntil(until = separator).toString(Charsets.UTF_8)
+            if (line.isEmpty()) break
+            val colonIndex = line.indexOf(':')
+            if (colonIndex < 1) continue
+            if (colonIndex > line.length - 3) continue
+            val key = line.substring(0, colonIndex)
+            val value = line.substring(colonIndex + 2, line.length)
+            headers[key] = value
+        }
         val message = """
             version: $version
             method: $method
             query: $query
+            headers: $headers
         """.trimIndent()
         logger.debug(message)
         TODO("AuthorizedLogics:read")
