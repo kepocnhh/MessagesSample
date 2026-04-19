@@ -1,10 +1,10 @@
-import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 repositories {
     google()
     mavenCentral()
+    maven("https://central.sonatype.com/repository/maven-snapshots")
 }
 
 plugins {
@@ -49,7 +49,7 @@ dependencies {
         }
         else -> error("Platform \"${entry.first}(${entry.second})\" is not supported!")
     }
-    implementation("com.github.kepocnhh:Bytes:0.4.0")
+    implementation("com.github.kepocnhh:Bytes:0.4.2u-SNAPSHOT")
     implementation("com.github.kepocnhh:Logics:0.2.0")
     implementation("org.bouncycastle:bcpkix-jdk18on:1.82")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.1")

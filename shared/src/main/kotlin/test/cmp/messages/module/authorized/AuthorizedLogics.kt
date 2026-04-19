@@ -2,6 +2,7 @@ package test.cmp.messages.module.authorized
 
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import kotlin.time.Duration.Companion.seconds
@@ -16,11 +17,13 @@ import kotlinx.coroutines.withContext
 import sp.kx.bytes.readBytes
 import sp.kx.bytes.readInt
 import sp.kx.bytes.readLong
+import sp.kx.bytes.readUntil
 import sp.kx.bytes.toByteArray
 import sp.kx.bytes.writeBytes
 import sp.kx.logics.Logics
 import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.entity.GCMSpecs
+import test.cmp.messages.entity.HttpRequest
 import test.cmp.messages.provider.Providers
 
 internal class AuthorizedLogics(
@@ -47,6 +50,27 @@ internal class AuthorizedLogics(
         _events.emit(Event.OnLock)
     }
 
+    private fun read(src: InputStream): HttpRequest {
+        val separator = "\r\n".toByteArray(Charsets.UTF_8)
+        val firstLine = src.readUntil(until = separator).toString(Charsets.UTF_8)
+        val split = firstLine.split(" ")
+        if (split.size != 3) TODO()
+        val protocol = split[2].split("/")
+        if (protocol.size != 2) TODO()
+        if (protocol[0] != "HTTP") TODO()
+        val version = protocol[1]
+        if (version != "1.1") TODO()
+        val method = split[0]
+        val query = split[1]
+        val message = """
+            version: $version
+            method: $method
+            query: $query
+        """.trimIndent()
+        logger.debug(message)
+        TODO("AuthorizedLogics:read")
+    }
+
     fun receive() = launch {
         logger.debug("receive")
         withContext(providers.contexts.default) {
@@ -56,11 +80,12 @@ internal class AuthorizedLogics(
                     .flatMap { it.inetAddresses.asSequence() }
                     .firstOrNull { it.isSiteLocalAddress }
                     ?: TODO("No address!")
-                val ss = ServerSocket(0, 1, address)
+                val port = 56934 // todo
+                val ss = ServerSocket(port, 1, address)
                 logger.debug("socket: ${ss.inetAddress.hostAddress}:${ss.localPort}")
                 launch {
                     withContext(providers.contexts.default) {
-                        delay(4.seconds)
+                        delay(32.seconds)
                         logger.debug("try to close the socket")
                         ss.close()
                     }
@@ -68,6 +93,7 @@ internal class AuthorizedLogics(
                 while (true) {
                     ss.accept().use { socket ->
                         logger.debug("socket:accept: ${socket.inetAddress.hostAddress}:${socket.port}")
+                        read(socket.getInputStream())
                         // todo
                     }
                 }
