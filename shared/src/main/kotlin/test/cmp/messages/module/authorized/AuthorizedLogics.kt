@@ -3,6 +3,7 @@ package test.cmp.messages.module.authorized
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
+import java.io.OutputStream
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import kotlin.time.Duration.Companion.seconds
@@ -24,6 +25,7 @@ import sp.kx.logics.Logics
 import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.entity.GCMSpecs
 import test.cmp.messages.entity.HttpRequest
+import test.cmp.messages.entity.HttpResponse
 import test.cmp.messages.provider.Providers
 
 internal class AuthorizedLogics(
@@ -73,14 +75,48 @@ internal class AuthorizedLogics(
             val value = line.substring(colonIndex + 2, line.length)
             headers[key] = value
         }
+        return HttpRequest(
+            version = version,
+            method = method,
+            query = query,
+            headers = headers,
+            body = src,
+        )
+    }
+
+    private fun write(dst: OutputStream, response: HttpResponse) {
+        val separator = "\r\n".toByteArray(Charsets.UTF_8)
+        dst.write("HTTP/${response.version} ${response.code} ${response.message}".toByteArray(Charsets.UTF_8))
+        dst.write(separator)
+        response.headers.forEach { (key, value) ->
+            dst.write("$key: $value".toByteArray(Charsets.UTF_8))
+            dst.write(separator)
+        }
+        dst.write(separator)
+        dst.flush()
+//        if (body != null) {
+//            dst.write(body)
+//        }
+//        dst.flush()
+    }
+
+    private fun route(request: HttpRequest): HttpResponse {
+        val body = request.headers["Content-Length"]
+            ?.toIntOrNull()
+            ?.takeIf { it > 0 }
+            ?.let(request.body::readBytes)
+            ?.let(::String)
         val message = """
-            version: $version
-            method: $method
-            query: $query
-            headers: $headers
+            headers: ${request.headers}
+            body(${body?.length}): $body
         """.trimIndent()
         logger.debug(message)
-        TODO("AuthorizedLogics:read")
+        return HttpResponse(
+            version = "1.1",
+            code = 200,
+            message = "OK",
+            headers = mapOf("millis" to "${System.currentTimeMillis()}"),
+        )
     }
 
     fun receive() = launch {
@@ -105,8 +141,9 @@ internal class AuthorizedLogics(
                 while (true) {
                     ss.accept().use { socket ->
                         logger.debug("socket:accept: ${socket.inetAddress.hostAddress}:${socket.port}")
-                        read(socket.getInputStream())
-                        // todo
+                        val request = read(socket.getInputStream())
+                        val response = route(request)
+                        write(socket.getOutputStream(), response)
                     }
                 }
             }.fold(
