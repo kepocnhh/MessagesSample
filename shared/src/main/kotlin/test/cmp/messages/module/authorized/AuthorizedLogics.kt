@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import sp.kx.bytes.readBytes
 import sp.kx.bytes.readInt
 import sp.kx.bytes.readLong
@@ -161,6 +163,34 @@ internal class AuthorizedLogics(
                 },
                 onFailure = { error ->
                     logger.warning("receive error: $error")
+                },
+            )
+        }
+    }
+
+    fun transmit(address: String) = launch {
+        logger.debug("transmit: $address")
+        withContext(providers.contexts.default) {
+            runCatching {
+                val client = OkHttpClient.Builder().build()
+                val request = Request.Builder()
+                    .url(address)
+                    .build()
+                client.newCall(request).execute().use { response ->
+                    val message = """
+                        code: ${response.code}
+                        message: ${response.message}
+                        headers: ${response.headers.toMap()}
+                        body: ${response.body.string()}
+                    """.trimIndent()
+                    logger.debug(message)
+                }
+            }.fold(
+                onSuccess = {
+                    logger.debug("transmit($address) success")
+                },
+                onFailure = { error ->
+                    logger.warning("transmit($address) error: $error")
                 },
             )
         }
