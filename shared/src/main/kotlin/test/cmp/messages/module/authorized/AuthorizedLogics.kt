@@ -30,6 +30,7 @@ import test.cmp.messages.entity.HttpRequest
 import test.cmp.messages.entity.HttpResponse
 import test.cmp.messages.provider.Providers
 import java.net.Inet4Address
+import okhttp3.RequestBody.Companion.toRequestBody
 
 internal class AuthorizedLogics(
     private val providers: Providers,
@@ -106,6 +107,29 @@ internal class AuthorizedLogics(
     }
 
     private fun route(request: HttpRequest): HttpResponse {
+        when (request.query) {
+            "/message" -> {
+                val pk = providers.locals.pk ?: error("No private key!")
+                val cm = request.body.toCipherMessage()
+                val decrypted = providers.sentry.decrypt(pk, message = cm)
+                val time = decrypted.readLong()
+                logger.debug("receive:time: $time")
+                return HttpResponse(
+                    version = "1.1",
+                    code = 200,
+                    message = "OK",
+                    headers = mapOf(),
+                    body = ByteArray(0).inputStream(),
+                )
+            }
+            else -> return HttpResponse(
+                version = "1.1",
+                code = 500,
+                message = "Internal Server Error",
+                headers = mapOf(),
+                body = ByteArray(0).inputStream(),
+            )
+        }
         val body = request.headers["Content-Length"]
             ?.toIntOrNull()
             ?.takeIf { it > 0 }
@@ -171,10 +195,18 @@ internal class AuthorizedLogics(
     fun transmit(address: String) = launch {
         logger.debug("transmit: $address")
         withContext(providers.contexts.default) {
+            val pk = providers.locals.pk ?: error("No private key!")
+            val time = System.currentTimeMillis()
+            logger.debug("transmit:time: $time")
+            val decrypted = time.toByteArray()
+            val cm = providers.sentry.encrypt(pk, decrypted = decrypted)
             runCatching {
+                //
                 val client = OkHttpClient.Builder().build()
+                val body = cm.toByteArray().toRequestBody()
                 val request = Request.Builder()
-                    .url(address)
+                    .url("$address/message")
+                    .post(body)
                     .build()
                 client.newCall(request).execute().use { response ->
                     val message = """
@@ -196,6 +228,32 @@ internal class AuthorizedLogics(
         }
     }
 
+    private fun CipherMessage.toByteArray(): ByteArray {
+        val stream = ByteArrayOutputStream()
+        stream.writeBytes(thatKey.encoded.size)
+        stream.writeBytes(thatKey.encoded)
+        stream.write(specs.tagSize)
+        stream.write(specs.iv.size)
+        stream.writeBytes(specs.iv)
+        stream.writeBytes(encrypted.size)
+        stream.writeBytes(encrypted)
+        stream.write(signature.size)
+        stream.writeBytes(signature)
+        return stream.toByteArray()
+    }
+
+    private fun InputStream.toCipherMessage(): CipherMessage {
+        return CipherMessage(
+            thatKey = providers.sentry.toPublicKey(readBytes(readInt())),
+            specs = GCMSpecs(
+                tagSize = read(),
+                iv = readBytes(read()),
+            ),
+            encrypted = readBytes(readInt()),
+            signature = readBytes(read()),
+        )
+    }
+
     fun encrypt() = launch {
         logger.debug("encrypt")
         _loading.value = true
@@ -205,18 +263,7 @@ internal class AuthorizedLogics(
             logger.debug("time: $time")
             val decrypted = time.toByteArray()
             val cm = providers.sentry.encrypt(pk, decrypted = decrypted)
-            ByteArrayOutputStream().use { stream ->
-                stream.writeBytes(cm.thatKey.encoded.size)
-                stream.writeBytes(cm.thatKey.encoded)
-                stream.write(cm.specs.tagSize)
-                stream.write(cm.specs.iv.size)
-                stream.writeBytes(cm.specs.iv)
-                stream.writeBytes(cm.encrypted.size)
-                stream.writeBytes(cm.encrypted)
-                stream.write(cm.signature.size)
-                stream.writeBytes(cm.signature)
-                stream.toByteArray()
-            }
+            cm.toByteArray()
         }
         _loading.value = false
         _events.emit(Event.OnEncrypt(message = message))
@@ -228,17 +275,7 @@ internal class AuthorizedLogics(
         val result = withContext(providers.contexts.default) {
             val pk = providers.locals.pk ?: error("No private key!")
             runCatching {
-                val cm = ByteArrayInputStream(message).use { stream ->
-                    CipherMessage(
-                        thatKey = providers.sentry.toPublicKey(stream.readBytes(stream.readInt())),
-                        specs = GCMSpecs(
-                            tagSize = stream.read(),
-                            iv = stream.readBytes(stream.read()),
-                        ),
-                        encrypted = stream.readBytes(stream.readInt()),
-                        signature = stream.readBytes(stream.read()),
-                    )
-                }
+                val cm = ByteArrayInputStream(message).toCipherMessage()
                 val decrypted = providers.sentry.decrypt(pk, message = cm)
                 decrypted.readLong()
             }

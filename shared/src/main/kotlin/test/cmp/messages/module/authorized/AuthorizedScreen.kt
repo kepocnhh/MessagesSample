@@ -82,7 +82,7 @@ internal fun AuthorizedScreen(
                 .wrapContentSize(),
             text = "receive",
         )
-        val addresses = remember { mutableStateOf("http://10.60.70.221:56934") } // todo
+        val addresses = remember { mutableStateOf("http://192.168.88.223:56934") } // todo
         BasicTextField(
             modifier = Modifier
                 .fillMaxWidth()
