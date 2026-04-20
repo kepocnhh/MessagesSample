@@ -27,6 +27,7 @@ import test.cmp.messages.entity.GCMSpecs
 import test.cmp.messages.entity.HttpRequest
 import test.cmp.messages.entity.HttpResponse
 import test.cmp.messages.provider.Providers
+import java.net.Inet4Address
 
 internal class AuthorizedLogics(
     private val providers: Providers,
@@ -132,9 +133,9 @@ internal class AuthorizedLogics(
         withContext(providers.contexts.default) {
             runCatching {
                 val address = NetworkInterface.getNetworkInterfaces()
-                    .asSequence()
-                    .flatMap { it.inetAddresses.asSequence() }
-                    .firstOrNull { it.isSiteLocalAddress }
+                    ?.asSequence()
+                    ?.flatMap { it.inetAddresses.asSequence() }
+                    ?.firstOrNull { it is Inet4Address && !it.isLoopbackAddress && it.isSiteLocalAddress }
                     ?: TODO("No address!")
                 val port = 56934 // todo
                 val ss = ServerSocket(port, 1, address)
