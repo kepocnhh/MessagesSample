@@ -93,11 +93,13 @@ internal class AuthorizedLogics(
             dst.write(separator)
         }
         dst.write(separator)
+        val length = response.headers["Content-Length"]?.toIntOrNull() ?: -1
+        for (index in 0 until length) {
+            val value = response.body.read()
+            if (value == -1) TODO()
+            dst.write(value)
+        }
         dst.flush()
-//        if (body != null) {
-//            dst.write(body)
-//        }
-//        dst.flush()
     }
 
     private fun route(request: HttpRequest): HttpResponse {
@@ -111,11 +113,17 @@ internal class AuthorizedLogics(
             body(${body?.length}): $body
         """.trimIndent()
         logger.debug(message)
+        val text = """{"millis": ${System.currentTimeMillis()}}"""
+        val bytes = text.toByteArray(Charsets.UTF_8)
         return HttpResponse(
             version = "1.1",
             code = 200,
             message = "OK",
-            headers = mapOf("millis" to "${System.currentTimeMillis()}"),
+            headers = mapOf(
+                "Content-Type" to "application/json",
+                "Content-Length" to "${bytes.size}",
+            ),
+            body = bytes.inputStream(),
         )
     }
 
