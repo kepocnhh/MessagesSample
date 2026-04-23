@@ -7,8 +7,8 @@ import sp.kx.bytes.readBytes
 import sp.kx.bytes.readInt
 import sp.kx.bytes.readUUID
 import sp.kx.bytes.writeBytes
+import sp.kx.secrets.Argon2Specs
 import sp.kx.secrets.GCMSpecs
-import test.cmp.messages.entity.Argon2Specs
 import test.cmp.messages.entity.SentryKey
 
 internal class FinalLocals : Locals {

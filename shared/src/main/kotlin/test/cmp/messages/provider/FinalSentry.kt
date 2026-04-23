@@ -1,5 +1,6 @@
 package test.cmp.messages.provider
 
+import org.bouncycastle.crypto.params.Argon2Parameters
 import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
 import java.security.MessageDigest
@@ -12,12 +13,13 @@ import java.text.Normalizer
 import javax.crypto.spec.SecretKeySpec
 import sp.kx.bytes.hex
 import sp.kx.bytes.readUUID
+import sp.kx.secrets.Argon2Specs
+import sp.kx.secrets.Bytes
 import sp.kx.secrets.Ciphers
 import sp.kx.secrets.GCMSpecs
 import sp.kx.secrets.Keys
 import sp.kx.secrets.Shared
 import sp.kx.secrets.Signing
-import test.cmp.messages.entity.Argon2Specs
 import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.entity.SentryKey
 
@@ -29,8 +31,21 @@ internal class FinalSentry(
     private val ec = ECSecrets.SECP256R1
     private val shared = Shared.ECDH
     private val signing = Signing.ECDSA.SHA256
-    private val bg = BytesGenerator.Argon2
+    private val bytes = Bytes.Argon2
     private val mac = Macs.HMAC.SHA512
+
+    private fun Argon2Specs(salt: ByteArray, keySize: Int): Argon2Specs {
+        if (salt.size != 32) TODO()
+        return Argon2Specs(
+            type = Argon2Parameters.ARGON2_id,
+            version = Argon2Parameters.ARGON2_VERSION_13,
+            salt = salt,
+            iterations = 3,
+            memorySize = 32_768,
+            parallelism = 1,
+            keySize = keySize,
+        )
+    }
 
     private fun derive(mk: ByteArray, indices: ByteArray, purpose: Byte): ByteArray {
         val sk = derive(mk = mk, indices = indices).copyOf(32)
@@ -65,8 +80,8 @@ internal class FinalSentry(
         val md = MessageDigest.getInstance("sha256")
         md.update(0x00)
         md.update(normalized.toByteArray(Charsets.UTF_8))
-        val specs = Argon2Specs.V1(salt = md.digest(), keySize = 64)
-        return bg.generate(password = normalized.toCharArray(), specs = specs)
+        val specs = Argon2Specs(salt = md.digest(), keySize = 64)
+        return bytes.generate(password = normalized.toCharArray(), specs = specs)
     }
 
     override fun getPrivateKey(passphrase: String): PrivateKey {
@@ -89,8 +104,8 @@ internal class FinalSentry(
         issuer: PrivateKey,
     ): SentryKey {
         val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
-        val keySpecs = Argon2Specs.V1(salt = nextBytes(32), keySize = 32)
-        val key = Keys.AES.toSecretKey(bg.generate(normalized.toCharArray(), keySpecs))
+        val keySpecs = Argon2Specs(salt = nextBytes(32), keySize = 32)
+        val key = Keys.AES.toSecretKey(bytes.generate(normalized.toCharArray(), keySpecs))
         val specs = GCMSpecs(128, nextBytes(12))
         val encrypted = ciphers.encrypt(key, issuer.encoded, specs)
         val pub = ec.getPublicKey(key = issuer)
@@ -114,7 +129,7 @@ internal class FinalSentry(
         issuer: SentryKey,
     ): PrivateKey {
         val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
-        val key = Keys.AES.toSecretKey(bg.generate(normalized.toCharArray(), issuer.keySpecs))
+        val key = Keys.AES.toSecretKey(bytes.generate(normalized.toCharArray(), issuer.keySpecs))
         val decrypted = ciphers.decrypt(key, issuer.encrypted, issuer.specs)
         val pk = toPrivateKey(decrypted)
         val pub = ec.getPublicKey(key = pk)
