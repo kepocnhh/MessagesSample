@@ -16,6 +16,7 @@ import sp.kx.secrets.Ciphers
 import sp.kx.secrets.GCMSpecs
 import sp.kx.secrets.Keys
 import sp.kx.secrets.Shared
+import sp.kx.secrets.Signing
 import test.cmp.messages.entity.Argon2Specs
 import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.entity.SentryKey
