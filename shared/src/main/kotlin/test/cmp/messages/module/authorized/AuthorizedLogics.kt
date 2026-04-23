@@ -25,12 +25,12 @@ import sp.kx.bytes.toByteArray
 import sp.kx.bytes.writeBytes
 import sp.kx.logics.Logics
 import test.cmp.messages.entity.CipherMessage
-import test.cmp.messages.entity.GCMSpecs
 import test.cmp.messages.entity.HttpRequest
 import test.cmp.messages.entity.HttpResponse
 import test.cmp.messages.provider.Providers
 import java.net.Inet4Address
 import okhttp3.RequestBody.Companion.toRequestBody
+import sp.kx.secrets.GCMSpecs
 
 internal class AuthorizedLogics(
     private val providers: Providers,

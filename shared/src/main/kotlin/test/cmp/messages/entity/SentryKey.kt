@@ -1,5 +1,6 @@
 package test.cmp.messages.entity
 
+import sp.kx.secrets.GCMSpecs
 import java.util.UUID
 
 internal class SentryKey(

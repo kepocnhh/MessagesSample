@@ -12,16 +12,18 @@ import java.text.Normalizer
 import javax.crypto.spec.SecretKeySpec
 import sp.kx.bytes.hex
 import sp.kx.bytes.readUUID
+import sp.kx.secrets.Ciphers
+import sp.kx.secrets.GCMSpecs
+import sp.kx.secrets.Keys
 import test.cmp.messages.entity.Argon2Specs
 import test.cmp.messages.entity.CipherMessage
-import test.cmp.messages.entity.GCMSpecs
 import test.cmp.messages.entity.SentryKey
 
 internal class FinalSentry(
     loggers: Loggers,
 ) : Sentry {
     private val logger = loggers.create("[Sentry]")
-    private val aes = AESSecrets.GCM.NoPadding
+    private val ciphers = Ciphers.AES.GCM.NoPadding
     private val ec = ECSecrets.SECP256R1
     private val ecdh = KeyAgreements.ECDH
     private val signing = Signing.ECDSA.SHA256
@@ -86,9 +88,9 @@ internal class FinalSentry(
     ): SentryKey {
         val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
         val keySpecs = Argon2Specs.V1(salt = nextBytes(32), keySize = 32)
-        val key = SecretKeySpec(bg.generate(normalized.toCharArray(), keySpecs), "aes")
+        val key = Keys.AES.toSecretKey(bg.generate(normalized.toCharArray(), keySpecs))
         val specs = GCMSpecs(128, nextBytes(12))
-        val encrypted = aes.encrypt(key, issuer.encoded, specs)
+        val encrypted = ciphers.encrypt(key, issuer.encoded, specs)
         val pub = ec.getPublicKey(key = issuer)
         val md = MessageDigest.getInstance("sha256")
         val id = md.digest(pub.encoded).readUUID()
@@ -110,8 +112,8 @@ internal class FinalSentry(
         issuer: SentryKey,
     ): PrivateKey {
         val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
-        val key = SecretKeySpec(bg.generate(normalized.toCharArray(), issuer.keySpecs), "aes")
-        val decrypted = aes.decrypt(key, issuer.encrypted, issuer.specs)
+        val key = Keys.AES.toSecretKey(bg.generate(normalized.toCharArray(), issuer.keySpecs))
+        val decrypted = ciphers.decrypt(key, issuer.encrypted, issuer.specs)
         val pk = toPrivateKey(decrypted)
         val pub = ec.getPublicKey(key = pk)
         val md = MessageDigest.getInstance("sha256")
@@ -126,7 +128,7 @@ internal class FinalSentry(
         val md = MessageDigest.getInstance("sha256")
         md.update(0x00)
         val sb = ecdh.getSharedBytes(keyPair.private, pub)
-        val sk = SecretKeySpec(md.digest(sb), "aes")
+        val sk = Keys.AES.toSecretKey(md.digest(sb))
         val signee = ByteArrayOutputStream().use { stream ->
             stream.writeBytes(key.encoded)
             stream.writeBytes(sk.encoded)
@@ -135,7 +137,7 @@ internal class FinalSentry(
         }
         val signature = signing.sign(key, signee)
         val specs = GCMSpecs(128, nextBytes(12))
-        val encrypted = aes.encrypt(sk, decrypted, specs)
+        val encrypted = ciphers.encrypt(sk, decrypted, specs)
         return CipherMessage(
             thatKey = keyPair.public,
             specs = specs,
@@ -148,8 +150,8 @@ internal class FinalSentry(
         val md = MessageDigest.getInstance("sha256")
         md.update(0x00)
         val sb = ecdh.getSharedBytes(key, message.thatKey)
-        val sk = SecretKeySpec(md.digest(sb), "aes")
-        val decrypted = aes.decrypt(sk, message.encrypted, message.specs)
+        val sk = Keys.AES.toSecretKey(md.digest(sb))
+        val decrypted = ciphers.decrypt(sk, message.encrypted, message.specs)
         val signee = ByteArrayOutputStream().use { stream ->
             stream.writeBytes(key.encoded)
             stream.writeBytes(sk.encoded)

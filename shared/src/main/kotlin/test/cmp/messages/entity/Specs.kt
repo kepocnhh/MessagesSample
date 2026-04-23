@@ -4,7 +4,6 @@ import org.bouncycastle.crypto.params.Argon2Parameters
 
 internal sealed interface Specs
 
-class GCMSpecs(val tagSize: Int, val iv: ByteArray) : Specs
 class CBCSpecs(val iv: ByteArray) : Specs
 class PBESpecs(val salt: ByteArray, val iterations: Int, val keySize: Int) : Specs
 class Argon2Specs(
