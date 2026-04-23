@@ -15,6 +15,7 @@ import sp.kx.bytes.readUUID
 import sp.kx.secrets.Ciphers
 import sp.kx.secrets.GCMSpecs
 import sp.kx.secrets.Keys
+import sp.kx.secrets.Shared
 import test.cmp.messages.entity.Argon2Specs
 import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.entity.SentryKey
@@ -25,7 +26,7 @@ internal class FinalSentry(
     private val logger = loggers.create("[Sentry]")
     private val ciphers = Ciphers.AES.GCM.NoPadding
     private val ec = ECSecrets.SECP256R1
-    private val ecdh = KeyAgreements.ECDH
+    private val shared = Shared.ECDH
     private val signing = Signing.ECDSA.SHA256
     private val bg = BytesGenerator.Argon2
     private val mac = Macs.HMAC.SHA512
@@ -127,7 +128,7 @@ internal class FinalSentry(
         val keyPair = ec.newKeyPair()
         val md = MessageDigest.getInstance("sha256")
         md.update(0x00)
-        val sb = ecdh.getSharedBytes(keyPair.private, pub)
+        val sb = shared.getSharedBytes(keyPair.private, pub)
         val sk = Keys.AES.toSecretKey(md.digest(sb))
         val signee = ByteArrayOutputStream().use { stream ->
             stream.writeBytes(key.encoded)
@@ -149,7 +150,7 @@ internal class FinalSentry(
     override fun decrypt(key: PrivateKey, message: CipherMessage): ByteArray {
         val md = MessageDigest.getInstance("sha256")
         md.update(0x00)
-        val sb = ecdh.getSharedBytes(key, message.thatKey)
+        val sb = shared.getSharedBytes(key, message.thatKey)
         val sk = Keys.AES.toSecretKey(md.digest(sb))
         val decrypted = ciphers.decrypt(sk, message.encrypted, message.specs)
         val signee = ByteArrayOutputStream().use { stream ->
