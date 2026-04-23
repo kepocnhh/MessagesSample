@@ -15,13 +15,10 @@ import sp.kx.secrets.Signing
 import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.entity.SentryKey
 import java.io.ByteArrayOutputStream
-import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.SecureRandom
-import java.security.spec.PKCS8EncodedKeySpec
-import java.security.spec.X509EncodedKeySpec
 import java.text.Normalizer
 
 internal class FinalSentry(
@@ -96,8 +93,7 @@ internal class FinalSentry(
     }
 
     override fun toPublicKey(encoded: ByteArray): PublicKey {
-        val kf = KeyFactory.getInstance("ec")
-        return kf.generatePublic(X509EncodedKeySpec(encoded))
+        return AsyKeys.EC.toPublicKey(encoded = encoded)
     }
 
     override fun encrypt(
@@ -120,11 +116,6 @@ internal class FinalSentry(
         )
     }
 
-    private fun toPrivateKey(encoded: ByteArray): PrivateKey {
-        val kf = KeyFactory.getInstance("ec")
-        return kf.generatePrivate(PKCS8EncodedKeySpec(encoded))
-    }
-
     override fun decrypt(
         password: String,
         issuer: SentryKey,
@@ -132,7 +123,7 @@ internal class FinalSentry(
         val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
         val key = Keys.AES.toSecretKey(bytes.generate(normalized.toCharArray(), issuer.keySpecs))
         val decrypted = ciphers.decrypt(key, issuer.encrypted, issuer.specs)
-        val pk = toPrivateKey(decrypted)
+        val pk = AsyKeys.EC.toPrivateKey(decrypted)
         val pub = ec.getPublicKey(key = pk)
         val md = MessageDigest.getInstance("sha256")
         val expected = md.digest(pub.encoded).readUUID()
