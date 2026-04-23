@@ -50,6 +50,7 @@ dependencies {
         else -> error("Platform \"${entry.first}(${entry.second})\" is not supported!")
     }
     implementation("com.github.kepocnhh:Bytes:0.4.2u-SNAPSHOT")
+    implementation("com.github.kepocnhh:Hashes:0.2.0u-SNAPSHOT")
     implementation("com.github.kepocnhh:Logics:0.2.0")
     implementation("com.github.kepocnhh:Secrets:0.3.1u-SNAPSHOT")
     implementation("com.squareup.okhttp3:okhttp:5.3.0")
