@@ -3,6 +3,7 @@ package test.cmp.messages.provider
 import org.bouncycastle.crypto.params.Argon2Parameters
 import sp.kx.bytes.hex
 import sp.kx.bytes.readUUID
+import sp.kx.hashes.Hashes
 import sp.kx.secrets.Argon2Specs
 import sp.kx.secrets.AsyKeys
 import sp.kx.secrets.Bytes
@@ -106,8 +107,7 @@ internal class FinalSentry(
         val specs = GCMSpecs(128, nextBytes(12))
         val encrypted = ciphers.encrypt(key, issuer.encoded, specs)
         val pub = ec.getPublicKey(key = issuer)
-        val md = MessageDigest.getInstance("sha256")
-        val id = md.digest(pub.encoded).readUUID()
+        val id = Hashes.SHA256.digest(pub.encoded).readUUID()
         return SentryKey(
             id = id,
             keySpecs = keySpecs,
@@ -125,8 +125,7 @@ internal class FinalSentry(
         val decrypted = ciphers.decrypt(key, issuer.encrypted, issuer.specs)
         val pk = AsyKeys.EC.toPrivateKey(decrypted)
         val pub = ec.getPublicKey(key = pk)
-        val md = MessageDigest.getInstance("sha256")
-        val expected = md.digest(pub.encoded).readUUID()
+        val expected = Hashes.SHA256.digest(pub.encoded).readUUID()
         if (issuer.id != expected) TODO()
         return pk
     }
