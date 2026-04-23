@@ -1,6 +1,18 @@
 package test.cmp.messages.provider
 
 import org.bouncycastle.crypto.params.Argon2Parameters
+import sp.kx.bytes.hex
+import sp.kx.bytes.readUUID
+import sp.kx.secrets.Argon2Specs
+import sp.kx.secrets.Bytes
+import sp.kx.secrets.Ciphers
+import sp.kx.secrets.GCMSpecs
+import sp.kx.secrets.Keys
+import sp.kx.secrets.Macs
+import sp.kx.secrets.Shared
+import sp.kx.secrets.Signing
+import test.cmp.messages.entity.CipherMessage
+import test.cmp.messages.entity.SentryKey
 import java.io.ByteArrayOutputStream
 import java.security.KeyFactory
 import java.security.MessageDigest
@@ -10,18 +22,6 @@ import java.security.SecureRandom
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import java.text.Normalizer
-import javax.crypto.spec.SecretKeySpec
-import sp.kx.bytes.hex
-import sp.kx.bytes.readUUID
-import sp.kx.secrets.Argon2Specs
-import sp.kx.secrets.Bytes
-import sp.kx.secrets.Ciphers
-import sp.kx.secrets.GCMSpecs
-import sp.kx.secrets.Keys
-import sp.kx.secrets.Shared
-import sp.kx.secrets.Signing
-import test.cmp.messages.entity.CipherMessage
-import test.cmp.messages.entity.SentryKey
 
 internal class FinalSentry(
     loggers: Loggers,
@@ -32,7 +32,7 @@ internal class FinalSentry(
     private val shared = Shared.ECDH
     private val signing = Signing.ECDSA.SHA256
     private val bytes = Bytes.Argon2
-    private val mac = Macs.HMAC.SHA512
+    private val macs = Macs.HMAC.SHA512
 
     private fun Argon2Specs(salt: ByteArray, keySize: Int): Argon2Specs {
         if (salt.size != 32) TODO()
@@ -61,9 +61,9 @@ internal class FinalSentry(
         val md = MessageDigest.getInstance("sha256")
         md.update(index)
         val signee = md.digest(cc)
-        val key = SecretKeySpec(sk, mac.algorithm)
-        if (indices.size == 1) return mac.sign(key, signee)
-        return derive(mk = mac.sign(key, signee), indices = indices.copyOfRange(1, indices.size))
+        val key = Keys.HMAC.SHA512.toSecretKey(sk)
+        if (indices.size == 1) return macs.sign(key, signee)
+        return derive(mk = macs.sign(key, signee), indices = indices.copyOfRange(1, indices.size))
     }
 
     private fun nextBytes(size: Int): ByteArray {
