@@ -18,6 +18,7 @@ import test.cmp.messages.provider.Locals
 import test.cmp.messages.provider.Loggers
 import test.cmp.messages.provider.Providers
 import test.cmp.messages.provider.Sentry
+import java.security.SecureRandom
 
 internal object App {
     val providers: Providers
@@ -41,6 +42,7 @@ internal object App {
         val loggers: Loggers = FinalLoggers()
         val locals: Locals = FinalLocals()
         val sentry: Sentry = FinalSentry(
+            random = SecureRandom.getInstanceStrong(),
             loggers = loggers,
         )
         providers = Providers(

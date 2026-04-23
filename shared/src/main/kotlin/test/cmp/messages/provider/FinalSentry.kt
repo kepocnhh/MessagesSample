@@ -4,6 +4,7 @@ import org.bouncycastle.crypto.params.Argon2Parameters
 import sp.kx.bytes.hex
 import sp.kx.bytes.readUUID
 import sp.kx.secrets.Argon2Specs
+import sp.kx.secrets.AsyKeys
 import sp.kx.secrets.Bytes
 import sp.kx.secrets.Ciphers
 import sp.kx.secrets.GCMSpecs
@@ -24,15 +25,16 @@ import java.security.spec.X509EncodedKeySpec
 import java.text.Normalizer
 
 internal class FinalSentry(
+    private val random: SecureRandom,
     loggers: Loggers,
 ) : Sentry {
     private val logger = loggers.create("[Sentry]")
     private val ciphers = Ciphers.AES.GCM.NoPadding
-    private val ec = ECSecrets.SECP256R1
     private val shared = Shared.ECDH
     private val signing = Signing.ECDSA.SHA256
     private val bytes = Bytes.Argon2
     private val macs = Macs.HMAC.SHA512
+    private val ec = AsyKeys.EC.SECP256R1
 
     private fun Argon2Specs(salt: ByteArray, keySize: Int): Argon2Specs {
         if (salt.size != 32) TODO()
@@ -67,7 +69,6 @@ internal class FinalSentry(
     }
 
     private fun nextBytes(size: Int): ByteArray {
-        val random: SecureRandom = SecureRandom.getInstanceStrong()
         val bytes = ByteArray(size)
         random.nextBytes(bytes)
         return bytes
@@ -140,8 +141,8 @@ internal class FinalSentry(
     }
 
     override fun encrypt(key: PrivateKey, decrypted: ByteArray): CipherMessage {
-        val pub = ec.getPublicKey(key)
-        val keyPair = ec.newKeyPair()
+        val pub = ec.getPublicKey(key = key)
+        val keyPair = ec.newKeyPair(random = random)
         val md = MessageDigest.getInstance("sha256")
         md.update(0x00)
         val sb = shared.getSharedBytes(keyPair.private, pub)
