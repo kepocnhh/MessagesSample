@@ -16,7 +16,6 @@ import sp.kx.secrets.Signing
 import test.cmp.messages.entity.CipherMessage
 import test.cmp.messages.entity.SentryKey
 import java.io.ByteArrayOutputStream
-import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.SecureRandom
@@ -49,18 +48,14 @@ internal class FinalSentry(
 
     private fun derive(mk: ByteArray, indices: ByteArray, purpose: Byte): ByteArray {
         val sk = derive(mk = mk, indices = indices).copyOf(32)
-        val md = MessageDigest.getInstance("sha256")
-        md.update(purpose)
-        return md.digest(sk)
+        return Hashes.SHA256.update(purpose).digest(sk)
     }
 
     private fun derive(mk: ByteArray, indices: ByteArray): ByteArray {
         val index = indices.firstOrNull() ?: TODO()
         val sk = mk.copyOf(32)
         val cc = mk.copyOfRange(32, 64)
-        val md = MessageDigest.getInstance("sha256")
-        md.update(index)
-        val signee = md.digest(cc)
+        val signee = Hashes.SHA256.update(index).digest(cc)
         val key = Keys.HMAC.SHA512.toSecretKey(sk)
         if (indices.size == 1) return macs.sign(key, signee)
         return derive(mk = macs.sign(key, signee), indices = indices.copyOfRange(1, indices.size))
@@ -76,10 +71,10 @@ internal class FinalSentry(
         logger.debug("passphrase(${passphrase.length}): \"$passphrase\"")
         val normalized = Normalizer.normalize(passphrase, Normalizer.Form.NFKD)
         logger.debug("normalized(${normalized.length}): \"$normalized\"")
-        val md = MessageDigest.getInstance("sha256")
-        md.update(0x00)
-        md.update(normalized.toByteArray(Charsets.UTF_8))
-        val specs = Argon2Specs(salt = md.digest(), keySize = 64)
+        val salt = Hashes.SHA256
+            .update(0x00)
+            .digest(normalized.toByteArray(Charsets.UTF_8))
+        val specs = Argon2Specs(salt = salt, keySize = 64)
         return bytes.generate(password = normalized.toCharArray(), specs = specs)
     }
 
@@ -122,8 +117,7 @@ internal class FinalSentry(
     ): PrivateKey {
         val normalized = Normalizer.normalize(password, Normalizer.Form.NFKD)
         val key = Keys.AES.toSecretKey(bytes.generate(normalized.toCharArray(), issuer.keySpecs))
-        val decrypted = ciphers.decrypt(key, issuer.encrypted, issuer.specs)
-        val pk = AsyKeys.EC.toPrivateKey(decrypted)
+        val pk = AsyKeys.EC - ciphers.decrypt(key, issuer.encrypted, issuer.specs)
         val pub = ec.getPublicKey(key = pk)
         val expected = Hashes.SHA256.digest(pub.encoded).readUUID()
         if (issuer.id != expected) TODO()
@@ -133,10 +127,8 @@ internal class FinalSentry(
     override fun encrypt(key: PrivateKey, decrypted: ByteArray): CipherMessage {
         val pub = ec.getPublicKey(key = key)
         val keyPair = ec.newKeyPair(random = random)
-        val md = MessageDigest.getInstance("sha256")
-        md.update(0x00)
         val sb = shared.getSharedBytes(keyPair.private, pub)
-        val sk = Keys.AES.toSecretKey(md.digest(sb))
+        val sk = Keys.AES + Hashes.SHA256.update(0x00).digest(sb)
         val signee = ByteArrayOutputStream().use { stream ->
             stream.writeBytes(key.encoded)
             stream.writeBytes(sk.encoded)
@@ -155,10 +147,8 @@ internal class FinalSentry(
     }
 
     override fun decrypt(key: PrivateKey, message: CipherMessage): ByteArray {
-        val md = MessageDigest.getInstance("sha256")
-        md.update(0x00)
         val sb = shared.getSharedBytes(key, message.thatKey)
-        val sk = Keys.AES.toSecretKey(md.digest(sb))
+        val sk = Keys.AES + Hashes.SHA256.update(0x00).digest(sb)
         val decrypted = ciphers.decrypt(sk, message.encrypted, message.specs)
         val signee = ByteArrayOutputStream().use { stream ->
             stream.writeBytes(key.encoded)
