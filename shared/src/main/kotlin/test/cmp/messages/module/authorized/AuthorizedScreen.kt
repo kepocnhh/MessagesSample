@@ -112,7 +112,7 @@ internal fun AuthorizedScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(!isLoading) {
-                    logics.transmit(address = addresses.value)
+                    logics.transmit(address = addresses.value, code = code)
                 }
                 .padding(16.dp)
                 .wrapContentSize(),

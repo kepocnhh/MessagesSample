@@ -1,12 +1,5 @@
 package test.cmp.messages.module.authorized
 
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
-import java.io.InputStream
-import java.io.OutputStream
-import java.net.NetworkInterface
-import java.net.ServerSocket
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,22 +10,32 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import sp.kx.bytes.readBytes
 import sp.kx.bytes.readInt
 import sp.kx.bytes.readLong
 import sp.kx.bytes.readUntil
 import sp.kx.bytes.toByteArray
 import sp.kx.bytes.writeBytes
+import sp.kx.hashes.Hashes
 import sp.kx.logics.Logics
+import sp.kx.secrets.GCMSpecs
 import test.cmp.messages.entity.CipherMessage
+import test.cmp.messages.entity.CipheredRequest
+import test.cmp.messages.entity.DecryptedRequest
 import test.cmp.messages.entity.HttpRequest
 import test.cmp.messages.entity.HttpResponse
 import test.cmp.messages.provider.Providers
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.Inet4Address
-import okhttp3.RequestBody.Companion.toRequestBody
-import sp.kx.bytes.readUUID
-import sp.kx.hashes.Hashes
-import sp.kx.secrets.GCMSpecs
+import java.net.NetworkInterface
+import java.net.ServerSocket
+import java.util.UUID
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 internal class AuthorizedLogics(
     private val providers: Providers,
@@ -113,7 +116,8 @@ internal class AuthorizedLogics(
             "/message" -> {
                 val pk = providers.locals.pk ?: error("No private key!")
                 val cm = request.body.toCipherMessage()
-                val decrypted = providers.sentry.decrypt(pk, message = cm)
+                val insider = Hashes.SHA256.digest(42)
+                val decrypted = providers.sentry.decrypt(pk, message = cm, insider = insider)
                 val time = decrypted.readLong()
                 logger.debug("receive:time: $time")
                 return HttpResponse(
@@ -157,7 +161,7 @@ internal class AuthorizedLogics(
     }
 
     fun receive(code: Int) = launch {
-        logger.debug("receive")
+        logger.debug("receive: code: $code")
         withContext(providers.contexts.default) {
             runCatching {
                 val address = NetworkInterface.getNetworkInterfaces()
@@ -165,7 +169,6 @@ internal class AuthorizedLogics(
                     ?.flatMap { it.inetAddresses.asSequence() }
                     ?.firstOrNull { it is Inet4Address && !it.isLoopbackAddress && it.isSiteLocalAddress }
                     ?: TODO("No address!")
-                val sessionId = Hashes.SHA256.update(0x00).digest(code.toByteArray()).readUUID()
                 val port = 56934 // todo
                 val ss = ServerSocket(port, 1, address)
                 logger.debug("socket: ${ss.inetAddress.hostAddress}:${ss.localPort}")
@@ -195,14 +198,21 @@ internal class AuthorizedLogics(
         }
     }
 
-    fun transmit(address: String) = launch {
-        logger.debug("transmit: $address")
+    fun transmit(address: String, code: Int) = launch {
+        logger.debug("transmit: address: $address code: $code")
         withContext(providers.contexts.default) {
             val pk = providers.locals.pk ?: error("No private key!")
             val time = System.currentTimeMillis()
             logger.debug("transmit:time: $time")
+//            val cr = CipheredRequest(
+//                id = UUID.randomUUID(), // todo
+//                code = code,
+//                time = System.currentTimeMillis().milliseconds, // todo
+//                body = time.toByteArray(),
+//            )
             val decrypted = time.toByteArray()
-            val cm = providers.sentry.encrypt(pk, decrypted = decrypted)
+            val insider = Hashes.SHA256.digest(42)
+            val cm = providers.sentry.encrypt(pk, decrypted = decrypted, insider = insider)
             runCatching {
                 //
                 val client = OkHttpClient.Builder().build()
@@ -257,21 +267,6 @@ internal class AuthorizedLogics(
         )
     }
 
-    fun encrypt() = launch {
-        logger.debug("encrypt")
-        _loading.value = true
-        val message = withContext(providers.contexts.default) {
-            val pk = providers.locals.pk ?: error("No private key!")
-            val time = System.currentTimeMillis()
-            logger.debug("time: $time")
-            val decrypted = time.toByteArray()
-            val cm = providers.sentry.encrypt(pk, decrypted = decrypted)
-            cm.toByteArray()
-        }
-        _loading.value = false
-        _events.emit(Event.OnEncrypt(message = message))
-    }
-
     fun decrypt(message: ByteArray) = launch {
         logger.debug("decrypt")
         _loading.value = true
@@ -279,7 +274,8 @@ internal class AuthorizedLogics(
             val pk = providers.locals.pk ?: error("No private key!")
             runCatching {
                 val cm = ByteArrayInputStream(message).toCipherMessage()
-                val decrypted = providers.sentry.decrypt(pk, message = cm)
+                val insider = Hashes.SHA256.digest(42)
+                val decrypted = providers.sentry.decrypt(pk, message = cm, insider = insider)
                 decrypted.readLong()
             }
         }

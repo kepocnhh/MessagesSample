@@ -3,6 +3,8 @@ package test.cmp.messages.provider
 import org.bouncycastle.crypto.params.Argon2Parameters
 import sp.kx.bytes.hex
 import sp.kx.bytes.readUUID
+import sp.kx.bytes.toByteArray
+import sp.kx.bytes.writeBytes
 import sp.kx.hashes.Hashes
 import sp.kx.secrets.Argon2Specs
 import sp.kx.secrets.AsyKeys
@@ -14,6 +16,7 @@ import sp.kx.secrets.Macs
 import sp.kx.secrets.Shared
 import sp.kx.secrets.Signing
 import test.cmp.messages.entity.CipherMessage
+import test.cmp.messages.entity.DecryptedRequest
 import test.cmp.messages.entity.SentryKey
 import java.io.ByteArrayOutputStream
 import java.security.PrivateKey
@@ -124,7 +127,7 @@ internal class FinalSentry(
         return pk
     }
 
-    override fun encrypt(key: PrivateKey, decrypted: ByteArray): CipherMessage {
+    override fun encrypt(key: PrivateKey, decrypted: ByteArray, insider: ByteArray): CipherMessage {
         val pub = ec.getPublicKey(key = key)
         val keyPair = ec.newKeyPair(random = random)
         val sb = shared.getSharedBytes(keyPair.private, pub)
@@ -133,6 +136,7 @@ internal class FinalSentry(
             stream.writeBytes(key.encoded)
             stream.writeBytes(sk.encoded)
             stream.writeBytes(decrypted)
+            stream.writeBytes(insider)
             stream.toByteArray()
         }
         val signature = signing.sign(key, signee)
@@ -146,7 +150,7 @@ internal class FinalSentry(
         )
     }
 
-    override fun decrypt(key: PrivateKey, message: CipherMessage): ByteArray {
+    override fun decrypt(key: PrivateKey, message: CipherMessage, insider: ByteArray): ByteArray {
         val sb = shared.getSharedBytes(key, message.thatKey)
         val sk = Keys.AES + Hashes.SHA256.update(0x00).digest(sb)
         val decrypted = ciphers.decrypt(sk, message.encrypted, message.specs)
@@ -154,6 +158,7 @@ internal class FinalSentry(
             stream.writeBytes(key.encoded)
             stream.writeBytes(sk.encoded)
             stream.writeBytes(decrypted)
+            stream.writeBytes(insider)
             stream.toByteArray()
         }
         val pub = ec.getPublicKey(key)
