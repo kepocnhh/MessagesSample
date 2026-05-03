@@ -17,7 +17,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -34,8 +33,8 @@ internal fun UnregisteredScreen(
     val logger = remember { providers.loggers.create("[Unregistered]") }
     val logics = App.logics<UnregisteredLogics>()
     val isLoading = logics.loading.collectAsState().value
-    val passphrases = remember { mutableStateOf("") }
-    val passwords = remember { mutableStateOf("") }
+    val passphrases = remember { mutableStateOf("foo") } // todo
+    val passwords = remember { mutableStateOf("bar") } // todo
     LaunchedEffect(Unit) {
         withContext(providers.contexts.default) {
             logics.events.collect { event ->
