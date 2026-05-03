@@ -33,6 +33,7 @@ internal fun AuthorizedScreen(
     val logger = remember { providers.loggers.create("[Authorized]") }
     val logics = App.logics<AuthorizedLogics>()
     val isLoading = logics.loading.collectAsState().value
+    val code = System.currentTimeMillis().rem(1_000_000).toInt() // todo
     LaunchedEffect(Unit) {
         withContext(providers.contexts.default) {
             logics.events.collect { event ->
@@ -75,8 +76,15 @@ internal fun AuthorizedScreen(
         BasicText(
             modifier = Modifier
                 .fillMaxWidth()
+                .padding(16.dp)
+                .wrapContentSize(),
+            text = "code: %06d".format(code),
+        )
+        BasicText(
+            modifier = Modifier
+                .fillMaxWidth()
                 .clickable(!isLoading) {
-                    logics.receive()
+                    logics.receive(code = code)
                 }
                 .padding(16.dp)
                 .wrapContentSize(),

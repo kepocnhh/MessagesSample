@@ -30,6 +30,8 @@ import test.cmp.messages.entity.HttpResponse
 import test.cmp.messages.provider.Providers
 import java.net.Inet4Address
 import okhttp3.RequestBody.Companion.toRequestBody
+import sp.kx.bytes.readUUID
+import sp.kx.hashes.Hashes
 import sp.kx.secrets.GCMSpecs
 
 internal class AuthorizedLogics(
@@ -154,7 +156,7 @@ internal class AuthorizedLogics(
         )
     }
 
-    fun receive() = launch {
+    fun receive(code: Int) = launch {
         logger.debug("receive")
         withContext(providers.contexts.default) {
             runCatching {
@@ -163,6 +165,7 @@ internal class AuthorizedLogics(
                     ?.flatMap { it.inetAddresses.asSequence() }
                     ?.firstOrNull { it is Inet4Address && !it.isLoopbackAddress && it.isSiteLocalAddress }
                     ?: TODO("No address!")
+                val sessionId = Hashes.SHA256.update(0x00).digest(code.toByteArray()).readUUID()
                 val port = 56934 // todo
                 val ss = ServerSocket(port, 1, address)
                 logger.debug("socket: ${ss.inetAddress.hostAddress}:${ss.localPort}")
